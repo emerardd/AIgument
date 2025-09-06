@@ -52,7 +52,10 @@ if 'DEEPSEEK_API_BASE' not in os.environ:
     os.environ['DEEPSEEK_API_BASE'] = DEFAULT_CONFIG["api_base"]
 
 # 数据库配置
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "instance", "aigument.db")}'
+# 确保instance目录存在
+instance_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "instance")
+os.makedirs(instance_dir, exist_ok=True)
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(instance_dir, "aigument.db")}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # 初始化数据库
