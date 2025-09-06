@@ -13,7 +13,7 @@ async function processQuestion(question, style, container, provider = "deepseek"
         questionElement.className = 'card p-6 mb-4 animate__animated animate__fadeIn';
         questionElement.innerHTML = `
             <h4 class="text-lg font-semibold mb-2 text-gray-700">您的问题</h4>
-            <div class="text-gray-700">${question}</div>
+            <div class="text-gray-700">${DOMPurify.sanitize(question)}</div>
         `;
         container.appendChild(questionElement);
         
@@ -146,7 +146,7 @@ async function processFollowUpQuestion(question, style, container, provider = "d
         questionElement.className = 'card p-6 mb-4 animate__animated animate__fadeIn';
         questionElement.innerHTML = `
             <h4 class="text-lg font-semibold mb-2 text-gray-700">您的追问</h4>
-            <div class="text-gray-700">${question}</div>
+            <div class="text-gray-700">${DOMPurify.sanitize(question)}</div>
         `;
         container.appendChild(questionElement);
         

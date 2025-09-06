@@ -45,7 +45,8 @@ async function regularDebate(topic, rounds, historyContainer, provider = "deepse
                     side: '正方',
                     round,
                     provider,
-                    model
+                    model,
+                    session_id: sessionId
                 })
             });
             
@@ -61,7 +62,7 @@ async function regularDebate(topic, rounds, historyContainer, provider = "deepse
             positiveContainer.innerHTML = `
                 <div class="card p-6">
                     <h4 class="text-lg font-semibold mb-2 text-blue-600">正方观点</h4>
-                    <div class="markdown-content">${marked.parse(positiveData.content)}</div>
+                    <div class="markdown-content">${renderMarkdown(positiveData.content)}</div>
                 </div>
             `;
             historyContainer.appendChild(positiveContainer);
@@ -77,7 +78,8 @@ async function regularDebate(topic, rounds, historyContainer, provider = "deepse
                     side: '反方',
                     round,
                     provider,
-                    model
+                    model,
+                    session_id: sessionId
                 })
             });
             
@@ -93,7 +95,7 @@ async function regularDebate(topic, rounds, historyContainer, provider = "deepse
             negativeContainer.innerHTML = `
                 <div class="card p-6">
                     <h4 class="text-lg font-semibold mb-2 text-red-600">反方观点</h4>
-                    <div class="markdown-content">${marked.parse(negativeData.content)}</div>
+                    <div class="markdown-content">${renderMarkdown(negativeData.content)}</div>
                 </div>
             `;
             historyContainer.appendChild(negativeContainer);
@@ -152,7 +154,7 @@ async function streamDebate(topic, rounds, historyContainer, provider = "deepsee
                     <div id="content-${key}" class="text-gray-700 markdown-content">
                         <div class="flex items-center space-x-2">
                             <div class="w-3 h-3 bg-${side === '正方' ? 'blue' : 'red'}-500 rounded-full pulse"></div>
-                            <span>正在思考中...</span>
+                            <span>${DOMPurify.sanitize('正在思考中...')}</span>
                         </div>
                     </div>
                 `;
@@ -171,7 +173,7 @@ async function streamDebate(topic, rounds, historyContainer, provider = "deepsee
                 const key = `${data.round}-${data.side}`;
                 const contentElement = contentElements[key];
                 if (contentElement) {
-                    contentElement.innerHTML = marked.parse(data.content);
+                    contentElement.innerHTML = renderMarkdown(data.content);
                     
                     // 应用代码高亮
                     contentElement.querySelectorAll('pre code').forEach((block) => {
@@ -258,7 +260,7 @@ function renderDebateHistory(history, container) {
             const sideClass = item.side === '正方' ? 'text-blue-600' : 'text-red-600';
             viewElement.innerHTML = `
                 <h4 class="text-lg font-semibold mb-2 ${sideClass}">${item.side}观点</h4>
-                <div class="text-gray-700 markdown-content">${marked.parse(item.content)}</div>
+                <div class="text-gray-700 markdown-content">${renderMarkdown(item.content)}</div>
             `;
             
             roundContainer.appendChild(viewElement);

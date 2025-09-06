@@ -110,10 +110,11 @@ function createSessionCard(session) {
     
     const date = new Date(session.start_time).toLocaleString('zh-CN');
     
+    const safeTopic = DOMPurify.sanitize(session.topic || '');
     card.innerHTML = `
         <div class="flex justify-between items-start">
             <div>
-                <h3 class="text-xl font-semibold mb-2">${session.topic}</h3>
+                <h3 class="text-xl font-semibold mb-2">${safeTopic}</h3>
                 <div class="text-gray-600">
                     <span class="text-sm">${date}</span>
                     <span class="ml-4 text-sm">消息数：${session.message_count}</span>
@@ -183,9 +184,11 @@ async function viewSessionDetail(sessionId) {
             data.messages.forEach(msg => {
                 const messageDiv = document.createElement('div');
                 messageDiv.className = 'mb-4 p-4 border-l-4 border-blue-500';
+                const safeRole = DOMPurify.sanitize(msg.role || '');
+                const safeContent = renderMarkdown(msg.content || '');
                 messageDiv.innerHTML = `
-                    <div class="text-sm text-gray-600 mb-2">${msg.role}</div>
-                    <div class="prose">${msg.content}</div>
+                    <div class="text-sm text-gray-600 mb-2">${safeRole}</div>
+                    <div class="prose">${safeContent}</div>
                 `;
                 modalContent.appendChild(messageDiv);
             });
