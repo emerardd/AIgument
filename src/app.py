@@ -10,7 +10,7 @@ from flask_cors import CORS
 from datetime import datetime, timedelta
 from models import db, Session, Message
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import inspect
+from sqlalchemy import inspect, func
 
 # 设置默认编码为UTF-8
 if sys.stdout.encoding != 'utf-8':
@@ -533,21 +533,27 @@ def get_history():
         if session_type and session_type != 'all':
             query = query.filter_by(session_type=session_type)
             
-        # 执行查询
+        # 执行查询（避免N+1：一次性统计消息数）
         sessions = query.order_by(Session.created_at.desc()).all()
         print(f"查询到 {len(sessions)} 个会话")
-        
+
+        session_ids = [s.id for s in sessions]
+        counts_map = {}
+        if session_ids:
+            counts = db.session.query(Message.session_id, func.count(Message.id)) \
+                .filter(Message.session_id.in_(session_ids)) \
+                .group_by(Message.session_id).all()
+            counts_map = {sid: cnt for sid, cnt in counts}
+
         history = []
         for session in sessions:
-            # 获取该会话的消息数量
-            message_count = Message.query.filter_by(session_id=session.id).count()
-            
+            message_count = counts_map.get(session.id, 0)
             history.append({
                 'session_id': session.id,
                 'topic': session.topic,
                 'start_time': session.created_at.isoformat(),
                 'message_count': message_count,
-                'type': session.session_type  # 添加类型信息
+                'type': session.session_type
             })
         
         print(f"返回 {len(history)} 条历史记录")

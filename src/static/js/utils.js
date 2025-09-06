@@ -7,8 +7,9 @@ function typeWriter(element, text, speed = 10) {
     // 检查是否包含markdown格式，如果包含则先通过marked解析
     const parsedText = marked.parse(text);
     
-    // 设置内容
-    element.innerHTML = parsedText;
+    // 设置内容（先进行XSS防护）
+    const safeHtml = DOMPurify.sanitize(parsedText);
+    element.innerHTML = safeHtml;
     
     // 应用代码高亮
     element.querySelectorAll('pre code').forEach((block) => {
@@ -48,16 +49,20 @@ function renderMarkdown(markdown) {
     // 配置marked选项
     marked.setOptions({
         highlight: function(code, lang) {
-            if (hljs.getLanguage(lang)) {
-                return hljs.highlight(lang, code).value;
-            } else {
+            try {
+                if (lang && hljs.getLanguage(lang)) {
+                    return hljs.highlight(code, { language: lang }).value;
+                }
+                return hljs.highlightAuto(code).value;
+            } catch (e) {
                 return hljs.highlightAuto(code).value;
             }
         }
     });
     
-    // 转换Markdown为HTML
-    return marked(markdown);
+    // 转换Markdown为HTML并进行XSS防护
+    const html = marked.parse(markdown);
+    return DOMPurify.sanitize(html);
 }
 
 /**

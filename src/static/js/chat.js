@@ -81,9 +81,9 @@ async function startChat(topic, rounds, container, role1, role2, streamMode, pro
                     typeWriter(role2ContentElement, conversations[i].role2);
                 }, 3000); // 延迟显示第二个角色的回复
             } else {
-                // 直接显示全部内容
-                role1ContentElement.innerHTML = marked.parse(conversations[i].role1);
-                role2ContentElement.innerHTML = marked.parse(conversations[i].role2);
+                // 直接显示全部内容（经XSS防护）
+                role1ContentElement.innerHTML = renderMarkdown(conversations[i].role1);
+                role2ContentElement.innerHTML = renderMarkdown(conversations[i].role2);
                 
                 // 应用代码高亮
                 role1ContentElement.querySelectorAll('pre code').forEach((block) => {

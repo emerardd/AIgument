@@ -14,6 +14,11 @@ print(f"数据库中的表：{tables}")
 for table in tables:
     print(f"\n表 {table} 中的数据：")
     with engine.connect() as conn:
-        result = conn.execute(text(f"SELECT * FROM {table}"))
+        # 安全地引用表名，避免SQL注入（虽然此脚本仅用于本地调试）
+        # 使用参数化无法用于表名，这里通过白名单校验 + 引号包裹
+        if table not in tables:
+            continue
+        quoted_table = f'"{table}"'
+        result = conn.execute(text(f"SELECT * FROM {quoted_table}"))
         for row in result:
             print(row) 
