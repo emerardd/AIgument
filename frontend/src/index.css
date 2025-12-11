@@ -1,0 +1,425 @@
+/* 1. 使用 v4 的标准引入方式 */
+@import "tailwindcss";
+
+/* 2. 导入 Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Serif+SC:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
+
+/* 3. Tailwind 主题配置 */
+@theme {
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  /* 自定义字体栈 - 高级宋体优先 */
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-serif: 'STSong', '华文宋体', 'Noto Serif SC', 'SimSun', serif;
+  --font-heading: 'STSong', '华文宋体', 'Noto Serif SC', serif;
+}
+
+/* 4. 现代化配色方案 - 深蓝/浅蓝/高级灰 */
+@layer base {
+  :root {
+    /* 背景：极淡的冷蓝灰，比纯白更有质感 */
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+    /* 深邃的海军蓝黑 */
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* 主色调：深蓝 (Royal Blue / Deep Indigo) */
+    --primary: 221 83% 53%;
+    /* #2563EB - 鲜亮的皇家蓝 */
+    --primary-foreground: 210 40% 98%;
+
+    /* 次要色：浅蓝/青色 */
+    --secondary: 199 89% 48%;
+    /* #0EA5E9 - 天空蓝 */
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+
+    --radius: 1rem;
+  }
+
+  .dark {
+    /* 深色模式：深海蓝黑 */
+    --background: 222 47% 11%;
+    /* #0F172A */
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 13%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 217 91% 60%;
+    /* 提亮的蓝 */
+    --primary-foreground: 222 47.4% 11.2%;
+
+    --secondary: 199 89% 48%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
+  }
+}
+
+/* 5. 全局样式 - 东方美学排版 */
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    letter-spacing: 0.02em;
+    /* 稍微增加字间距，增加呼吸感 */
+  }
+
+  /* 标题使用宋体，营造典雅、高级、知识分子的感觉 */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    /* 宋体适合更宽的字间距 */
+    line-height: 1.4;
+    color: hsl(var(--foreground));
+  }
+
+  h1 {
+    font-size: 3.5rem;
+  }
+
+  h2 {
+    font-size: 2.25rem;
+  }
+
+  h3 {
+    font-size: 1.875rem;
+  }
+
+  h4 {
+    font-size: 1.5rem;
+  }
+
+  p {
+    line-height: 1.8;
+    /* 增加行高，提升阅读体验 */
+    color: hsl(var(--muted-foreground));
+    font-family: var(--font-sans);
+    /* 正文保持无衬线，易读 */
+  }
+}
+
+/* 6. 极致毛玻璃 - 蓝调 */
+.glass {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.07);
+  /* 淡淡的蓝色阴影 */
+}
+
+.dark .glass {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* 7. 阴影系统 - 层次感 */
+.shadow-soft-sm {
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.05);
+}
+
+.shadow-soft {
+  box-shadow: 0 8px 30px rgba(37, 99, 235, 0.08);
+}
+
+.shadow-soft-lg {
+  box-shadow: 0 20px 50px rgba(37, 99, 235, 0.12);
+}
+
+/* 8. 文字渐变 - 深蓝到浅蓝 */
+.text-gradient {
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #06b6d4 100%);
+  /* Navy -> Blue -> Cyan */
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.dark .text-gradient {
+  background: linear-gradient(135deg, #60a5fa 0%, #38bdf8 50%, #22d3ee 100%);
+  /* Light Blue -> Sky -> Cyan */
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* 9. 背景纹理 - 流动的海洋 */
+.gradient-bg {
+  background-color: hsl(var(--background));
+  background-image:
+    radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 100% 100%, rgba(6, 182, 212, 0.05) 0%, transparent 50%);
+}
+
+.dark .gradient-bg {
+  background-image:
+    radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 100% 100%, rgba(6, 182, 212, 0.1) 0%, transparent 50%);
+}
+
+/* 10. 卡片 - 雅致 */
+.card-modern {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.card-modern:hover {
+  border-color: hsl(var(--primary) / 0.3);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-soft);
+}
+
+/* 11. 按钮 - 蓝调渐变 */
+.btn-primary {
+  background: linear-gradient(135deg, #2563eb 0%, #0284c7 100%);
+  /* Blue -> Sky */
+  color: white;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  border-radius: calc(var(--radius) - 4px);
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+  border: none;
+}
+
+.btn-primary:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+/* 12. 输入框 */
+.input-clean {
+  background: hsl(var(--muted) / 0.5);
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius) - 4px);
+  padding: 0.75rem 1rem;
+  transition: all 0.2s ease;
+  font-size: 0.95rem;
+}
+
+.input-clean:focus {
+  background: hsl(var(--background));
+  border-color: hsl(var(--primary) / 0.5);
+  box-shadow: 0 0 0 4px hsl(var(--primary) / 0.1);
+  outline: none;
+}
+
+/* 13. 动画 - 丝滑、高级、弹性 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+    filter: blur(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+    filter: blur(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes elasticSlide {
+  0% {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+
+  50% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes springIn {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+
+  70% {
+    transform: scale(0.98);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 实用动画类 */
+.animate-fade-in {
+  animation: fadeIn 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.animate-slide-up {
+  animation: slideUpFade 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  /* 弹性效果 */
+}
+
+.animate-elastic {
+  animation: elasticSlide 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-spring {
+  animation: springIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* 延迟工具类 */
+.delay-100 {
+  animation-delay: 100ms;
+}
+
+.delay-200 {
+  animation-delay: 200ms;
+}
+
+.delay-300 {
+  animation-delay: 300ms;
+}
+
+.delay-500 {
+  animation-delay: 500ms;
+}
+
+/* 14. 滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.2);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.4);
+}
