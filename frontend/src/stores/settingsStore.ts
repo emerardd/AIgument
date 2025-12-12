@@ -1,13 +1,15 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+export type Provider = 'deepseek' | 'openai' | 'gemini' | 'claude'
+
 interface SettingsState {
     darkMode: boolean
-    defaultProvider: 'deepseek' | 'openai'
+    defaultProvider: Provider
     defaultModel: string
     streamMode: boolean
     toggleDarkMode: () => void
-    setDefaultProvider: (provider: 'deepseek' | 'openai') => void
+    setDefaultProvider: (provider: Provider) => void
     setDefaultModel: (model: string) => void
     setStreamMode: (enabled: boolean) => void
     initTheme: () => void

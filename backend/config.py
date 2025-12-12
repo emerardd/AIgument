@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     # API Keys
     deepseek_api_key: str = ""
     openai_api_key: str = ""
+    gemini_api_key: str = ""
+    claude_api_key: str = ""
     
     # API Base URLs
     deepseek_api_base: str = "https://api.deepseek.com/v1"

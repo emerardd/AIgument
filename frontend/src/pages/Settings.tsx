@@ -1,17 +1,21 @@
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore, type Provider } from '@/stores/settingsStore'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Settings, Cpu, Zap, Server, Check, Moon, Sun } from 'lucide-react'
 
-const providerOptions = [
-    { value: 'deepseek' as const, label: 'DeepSeek', description: '高性价比，中文能力强' },
-    { value: 'openai' as const, label: 'OpenAI', description: 'GPT 系列模型' },
+const providerOptions: { value: Provider; label: string; description: string }[] = [
+    { value: 'deepseek', label: 'DeepSeek', description: '高性价比，中文能力强' },
+    { value: 'openai', label: 'OpenAI', description: 'GPT 系列模型' },
+    { value: 'gemini', label: 'Google Gemini', description: 'Google 最新 AI 模型' },
+    { value: 'claude', label: 'Anthropic Claude', description: '安全可靠的 AI 助手' },
 ]
 
-const modelPresets = {
+const modelPresets: Record<Provider, string[]> = {
     deepseek: ['deepseek-chat', 'deepseek-coder'],
-    openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
+    openai: ['gpt-5.2', 'gpt-5-mini', 'gpt-5-nano', 'gpt-5.2-pro', 'gpt-5', 'gpt-4.1'],
+    gemini: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-pro-preview'],
+    claude: ['claude-opus-4.5', 'claude-sonnet-4.5'],
 }
 
 export default function SettingsPage() {
