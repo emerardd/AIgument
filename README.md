@@ -10,9 +10,9 @@
   - **问答模式**：提供详细、简洁或苏格拉底式的回答风格选择
 
 - **多模型支持**：
-  - DeepSeek (deepseek-chat, deepseek-coder)
+  - DeepSeek (deepseek-chat, deepseek-reasoner)
   - OpenAI (gpt-5.2, gpt-5-mini, gpt-5-nano, gpt-5.2-pro, gpt-5, gpt-4.1)
-  - Google Gemini (gemini-2.5-flash, gemini-2.5-pro, gemini-3-pro-preview)
+  - Google Gemini (gemini-2.5-flash, gemini-2.5-pro, gemini-3-flash-preview, gemini-3-pro-preview)
   - Anthropic Claude (claude-opus-4.5, claude-sonnet-4.5)
 
 - **实时显示**：
