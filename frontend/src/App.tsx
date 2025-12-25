@@ -4,9 +4,12 @@ import { Footer } from './components/layout/Footer'
 import { ToastContainer } from './components/ui/Toast'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import Home from './pages/Home'
+import AgentDebate from './pages/AgentDebate'
 import History from './pages/History'
 import Chat from './pages/Chat'
 import QA from './pages/QA'
+import DualChat from './pages/DualChat'
+import SocraticQA from './pages/SocraticQA'
 import Settings from './pages/Settings'
 import './index.css'
 
@@ -19,8 +22,11 @@ function App() {
           <ErrorBoundary>
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/agent-debate" element={<AgentDebate />} />
               <Route path="/chat" element={<Chat />} />
+              <Route path="/dual-chat" element={<DualChat />} />
               <Route path="/qa" element={<QA />} />
+              <Route path="/socratic-qa" element={<SocraticQA />} />
               <Route path="/history" element={<History />} />
               <Route path="/settings" element={<Settings />} />
             </Routes>
@@ -34,5 +40,3 @@ function App() {
 }
 
 export default App
-
-

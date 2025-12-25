@@ -1,107 +1,139 @@
 # AIgument
 
-"AIgument" 是一个基于大语言模型的智能对话平台，支持多种交互模式，包括辩论模式、对话模式和问答模式。该平台旨在通过AI模型间的互动，探索并展示人工智能在不同场景下的推理与表达能力。
+"AIgument" 是一个基于大语言模型的智能对话平台，支持多种交互模式，包括 **Multi-Agent 辩论**、**双角色对话**、**苏格拉底式问答** 等。该平台旨在通过 AI 模型间的互动，探索并展示人工智能在不同场景下的推理与表达能力。
 
-## 功能特点
+## ✨ 功能特点
 
-- **多模式交互**：
-  - **辩论模式**：两个AI模型分别扮演正反方，就同一主题进行多轮辩论
-  - **对话模式**：两个不同角色的AI进行对话，展示不同视角的观点交流
-  - **问答模式**：提供详细、简洁或苏格拉底式的回答风格选择
+### 🎯 核心交互模式
 
-- **多模型支持**：
-  - DeepSeek (deepseek-chat, deepseek-reasoner)
-  - OpenAI (gpt-5.2, gpt-5-mini, gpt-5-nano, gpt-5.2-pro, gpt-5, gpt-4.1)
-  - Google Gemini (gemini-2.5-flash, gemini-2.5-pro, gemini-3-flash-preview, gemini-3-pro-preview)
-  - Anthropic Claude (claude-opus-4.5, claude-sonnet-4.5)
+| 模式 | 描述 | 路由 |
+|------|------|------|
+| **Multi-Agent 辩论** | 具备思考过程的智能辩论，支持实时评分和裁决 | `/agent-debate` |
+| **双角色对话** | 两个 AI 角色（6种人格）围绕主题自然对话 | `/dual-chat` |
+| **苏格拉底问答** | 引导式学习，通过提问帮助用户思考 | `/socratic-qa` |
+| **普通对话** (Legacy) | 与 AI 助手的传统对话 | `/chat` |
+| **传统问答** (Legacy) | 多风格问答 | `/qa` |
 
-- **实时显示**：
-  - 流式输出技术（SSE）实时显示生成内容
-  - 非流式模式下支持逐步显示和打字机效果，提升用户体验
+### 🧠 Multi-Agent 架构
 
-- **丰富表现形式**：
-  - Markdown格式支持，包括粗体、列表、引用、代码块等格式化展示
-  - 代码高亮显示
-  - 打字机动画效果
+- **ReAct 推理模式**：Agent 先思考（Reason）再行动（Act）
+- **辩论者 Agent**：正反双方各有独立的策略分析能力
+- **评审 Agent**：4 维度评分（逻辑性、论据质量、表达技巧、反驳能力）
+- **协调器**：管理辩论流程和状态机
+- **共享记忆**：存储辩论历史和比分
+- **论点图谱**：分析论点关系（支持/反驳/补充）
+- **Agent 通信协议**：标准化的消息传递机制
 
-- **自定义选项**：
-  - 辩论轮次选择（1-5轮）
-  - 对话角色选择（科学家、哲学家、作家等）
-  - 问答风格选择（详细分析、简洁直接、苏格拉底式）
-  - 模型和服务提供商选择
+### 🗣️ 双角色对话
 
-- **现代化UI**：
-  - 响应式设计，适配桌面和移动设备
-  - 动画效果增强用户体验
-  - 清晰的视觉层次和交互反馈
-  - 深色/浅色模式切换
+6 种预设角色：
+- 🌞 乐观主义者（小阳）
+- 📊 现实主义者（老陈）
+- ❓ 怀疑论者（阿疑）
+- 💡 创意者（小创）
+- 🔧 实践者（老王）
+- 📚 哲学家（孔思）
 
-## 技术栈
+### 🤔 苏格拉底问答
 
-- **后端**：
-  - FastAPI - 高性能异步 Web 框架
-  - SQLAlchemy - ORM 数据库操作
-  - Pydantic - 数据验证和序列化
-  - Uvicorn - ASGI 服务器
+3 种模式：
+- **苏格拉底式**：只提问不给答案，引导思考
+- **结构化**：返回知识卡片（要点、例子、延伸）
+- **混合模式**：先引导后给出结构化答案
 
-- **前端**：
-  - React 18 - 用户界面库
-  - TypeScript - 类型安全
-  - Vite - 快速构建工具
-  - Tailwind CSS - 原子化 CSS 框架
-  - Zustand - 轻量级状态管理
-  - React Router - 客户端路由
+### 🔌 多模型支持
 
-- **AI 模型集成**：
-  - OpenAI SDK
-  - Google GenAI SDK
-  - Anthropic SDK
+- DeepSeek (deepseek-chat, deepseek-reasoner)
+- OpenAI (gpt-5.2, gpt-5-mini, gpt-5-nano, gpt-5.2-pro, gpt-5, gpt-4.1)
+- Google Gemini (gemini-2.5-flash, gemini-2.5-pro, gemini-3-flash-preview, gemini-3-pro-preview)
+- Anthropic Claude (claude-opus-4.5, claude-sonnet-4.5)
 
-- **流媒体技术**：Server-Sent Events (SSE)
 
-## 项目结构
+
+### 📺 实时显示
+
+- 流式输出技术（SSE）实时显示生成内容
+- Markdown 格式支持（粗体、列表、代码块等）
+- 思考过程可视化（可折叠面板）
+- 实时评分和比分更新
+
+## 🛠️ 技术栈
+
+### 后端
+- **FastAPI** - 高性能异步 Web 框架
+- **SQLAlchemy** - ORM 数据库操作
+- **Pydantic** - 数据验证和序列化
+- **Uvicorn** - ASGI 服务器
+
+### 前端
+- **React 18** - 用户界面库
+- **TypeScript** - 类型安全
+- **Vite** - 快速构建工具
+- **Tailwind CSS** - 原子化 CSS 框架
+- **Zustand** - 轻量级状态管理
+- **Lucide React** - 图标库
+
+### AI 模型集成
+- OpenAI SDK
+- Google GenAI SDK
+- Anthropic SDK
+
+## 📁 项目结构
 
 ```
 aigument/
-├── backend/                 # FastAPI 后端
+├── backend/
 │   ├── main.py              # 应用入口
 │   ├── config.py            # 配置管理
 │   ├── database.py          # 数据库连接
-│   ├── utils.py             # 工具函数
-│   ├── .env                 # 环境变量（需自行创建）
-│   ├── requirements.txt     # Python 依赖
 │   ├── routers/             # API 路由
-│   │   ├── debate.py        # 辩论 API
-│   │   ├── chat.py          # 对话 API
-│   │   ├── qa.py            # 问答 API
+│   │   ├── debate.py        # 辩论 API（含 Multi-Agent）
+│   │   ├── chat.py          # 对话 API（含双角色对话）
+│   │   ├── qa.py            # 问答 API（含苏格拉底）
 │   │   └── history.py       # 历史记录 API
-│   ├── services/            # 业务逻辑
-│   │   └── ai_client.py     # 统一 AI 客户端
+│   ├── agents/              # 🆕 Multi-Agent 框架
+│   │   ├── base_agent.py    # Agent 基类（ReAct 模式）
+│   │   ├── debater_agent.py # 辩论者 Agent
+│   │   ├── jury_agent.py    # 评审 Agent
+│   │   ├── orchestrator.py  # 辩论协调器
+│   │   └── protocol.py      # Agent 通信协议
+│   ├── memory/              # 🆕 共享记忆
+│   │   ├── shared_memory.py # 通用共享记忆
+│   │   └── argument_graph.py# 论点图谱
+│   ├── services/
+│   │   ├── ai_client.py     # 统一 AI 客户端
+│   │   ├── dual_chat.py     # 🆕 双角色对话服务
+│   │   └── socratic_qa.py   # 🆕 苏格拉底问答服务
 │   ├── models/              # 数据库模型
 │   └── schemas/             # Pydantic 数据模型
-├── frontend/                # React 前端
+├── frontend/
 │   ├── src/
-│   │   ├── App.tsx          # 应用根组件
-│   │   ├── main.tsx         # 入口文件
-│   │   ├── index.css        # 全局样式
-│   │   ├── pages/           # 页面组件
-│   │   │   ├── Debate.tsx   # 辩论页面
-│   │   │   ├── Chat.tsx     # 对话页面
-│   │   │   ├── QA.tsx       # 问答页面
-│   │   │   ├── History.tsx  # 历史记录页面
-│   │   │   └── Settings.tsx # 设置页面
-│   │   ├── stores/          # Zustand 状态管理
-│   │   ├── components/      # 可复用组件
-│   │   └── services/        # API 服务
-│   ├── package.json         # npm 依赖
-│   └── vite.config.ts       # Vite 配置
-├── instance/                # SQLite 数据库目录
-├── requirements.txt         # 根目录依赖（可选）
-├── README.md                # 项目说明文档
-└── LICENSE                  # Apache 2.0 许可证
+│   │   ├── pages/
+│   │   │   ├── AgentDebate.tsx  # 🆕 Multi-Agent 辩论
+│   │   │   ├── DualChat.tsx     # 🆕 双角色对话
+│   │   │   ├── SocraticQA.tsx   # 🆕 苏格拉底问答
+│   │   │   ├── Chat.tsx         # Legacy 对话
+│   │   │   ├── QA.tsx           # Legacy 问答
+│   │   │   └── ...
+│   │   ├── components/
+│   │   │   ├── debate/
+│   │   │   │   ├── AgentDebateView.tsx   # 🆕 Agent 辩论视图
+│   │   │   │   ├── ThinkingBubble.tsx    # 🆕 思考过程展示
+│   │   │   │   ├── ScorePanel.tsx        # 🆕 评分面板
+│   │   │   │   └── ArgumentGraphView.tsx # 🆕 论点图谱视图
+│   │   │   ├── chat/
+│   │   │   │   ├── DualChatView.tsx      # 🆕 双角色对话
+│   │   │   │   └── ChatView.tsx          # Legacy 对话
+│   │   │   └── qa/
+│   │   │       ├── SocraticQAView.tsx    # 🆕 苏格拉底问答
+│   │   │       └── QAView.tsx            # Legacy 问答
+│   │   └── stores/
+│   │       └── agentDebateStore.ts       # 🆕 Agent 辩论状态
+│   └── package.json
+└── README.md
 ```
 
-## 安装和运行
+## 🚀 安装和运行
 
 ### 1. 克隆仓库
 
@@ -113,14 +145,14 @@ cd aigument
 ### 2. 后端配置
 
 ```bash
-# 创建并激活虚拟环境（推荐）
+# 创建虚拟环境
 python -m venv venv
 # Windows
 venv\Scripts\activate
 # Linux/Mac
 source venv/bin/activate
 
-# 安装后端依赖
+# 安装依赖
 cd backend
 pip install -r requirements.txt
 ```
@@ -133,21 +165,14 @@ DEEPSEEK_API_KEY=your_deepseek_api_key
 OPENAI_API_KEY=your_openai_api_key
 GEMINI_API_KEY=your_gemini_api_key
 CLAUDE_API_KEY=your_claude_api_key
-
-# 可选：API Base URL（如使用代理）
-DEEPSEEK_API_BASE=https://api.deepseek.com/v1
-OPENAI_API_BASE=https://api.openai.com/v1
 ```
 
 ### 3. 前端配置
 
 ```bash
 cd frontend
-
-# 使用 pnpm（推荐）
 pnpm install
-
-# 或使用 npm
+# 或
 npm install
 ```
 
@@ -162,100 +187,78 @@ python main.py
 **启动前端**（端口 5173）：
 ```bash
 cd frontend
-pnpm dev
-# 或
-npm run dev
+pnpm dev --host
 ```
 
 ### 5. 访问应用
 
 - **前端界面**：http://localhost:5173
-- **后端 API 文档**：http://localhost:5000/docs（Swagger UI）
-- **后端 ReDoc**：http://localhost:5000/redoc
+- **API 文档**：http://localhost:5000/docs
 
-## API 文档
+## 📡 API 端点
 
-后端使用 FastAPI，自动生成交互式 API 文档。启动后端后访问 `/docs` 即可查看和测试所有 API。
+### Multi-Agent 辩论
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/debate/agent-stream` | GET | 流式 Multi-Agent 辩论 |
+| `/api/debate/{session_id}/graph` | GET | 获取论点图谱 |
+| `/api/debate/{session_id}/analysis` | GET | 获取辩论分析 |
 
-### 主要 API 端点
+### 双角色对话
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/chat/roles` | GET | 获取可用角色列表 |
+| `/api/chat/dual-stream` | GET | 流式双角色对话 |
 
-| 模块 | 端点 | 方法 | 说明 |
-|-----|------|------|------|
-| 辩论 | `/api/debate/init` | POST | 初始化辩论会话 |
-| 辩论 | `/api/debate/stream` | GET | 流式辩论 |
-| 辩论 | `/api/debate/single` | POST | 单轮辩论 |
-| 对话 | `/api/chat/init` | POST | 初始化对话会话 |
-| 对话 | `/api/chat/stream` | GET | 流式对话 |
-| 问答 | `/api/qa/ask` | POST | 提问 |
-| 问答 | `/api/qa/stream` | GET | 流式问答 |
-| 历史 | `/api/history` | GET | 获取历史列表 |
-| 历史 | `/api/history/{session_id}` | GET | 获取会话详情 |
-| 历史 | `/api/history/{session_id}` | DELETE | 删除会话 |
-| 历史 | `/api/history/{session_id}/export` | GET | 导出会话 |
+### 苏格拉底问答
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/qa/modes` | GET | 获取问答模式列表 |
+| `/api/qa/socratic-stream` | GET | 流式苏格拉底问答 |
+| `/api/qa/follow-up` | POST | 跟进回复 |
 
-## 使用说明
+### Legacy API
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/chat/stream` | GET | 普通对话流 |
+| `/api/qa/stream` | GET | 传统问答流 |
+| `/api/debate/stream` | GET | 简单辩论流 |
 
-### 辩论模式
+## 🎮 使用说明
 
-1. 选择"辩论模式"
-2. 输入辩论主题，如"人工智能是否会超越人类智能"
-3. 设置辩论轮次（1-5轮）
-4. 选择是否开启流式输出
-5. 在设置页面选择模型提供商和具体模型
-6. 点击"开始辩论"
-7. 系统将生成正反双方的辩论内容
+### Multi-Agent 辩论
 
-### 对话模式
+1. 进入 "Agent辩论" 页面
+2. 输入辩论主题
+3. 设置轮次和模型
+4. 点击"开始辩论"
+5. 观看 Agent 的思考过程和论点生成
+6. 查看实时评分和最终裁决
 
-1. 选择"AI对话模式"
-2. 输入对话主题
-3. 选择两个角色（如科学家和哲学家）
+### 双角色对话
+
+1. 进入 "角色对话" 页面
+2. 输入对话主题（如"远程办公的利弊"）
+3. 选择两个角色（如"乐观主义者" vs "现实主义者"）
 4. 设置对话轮次
-5. 点击"开始对话"
-6. 系统将生成两个角色间的对话内容
+5. 点击"开始对话"观看两个 AI 角色的对话
 
-### 问答模式
+### 苏格拉底问答
 
-1. 选择"问答模式"
-2. 输入您的问题
-3. 选择回答风格（详细分析、简洁直接或苏格拉底式）
-4. 点击"提交问题"
-5. 系统将根据选择的风格生成回答
+1. 进入 "思考问答" 页面
+2. 选择模式（苏格拉底/结构化/混合）
+3. 输入问题
+4. AI 会引导你思考而不是直接给答案
+5. 可以继续回复进行多轮互动
 
-## 后续开发计划
+## 🗺️ 后续开发计划
 
-1. **功能扩展**：
-   - 多语言支持
-   - 语音输入和输出
-   - 更多自定义角色和模板
+- [ ] 论点图谱可视化（Mermaid 图表）
+- [ ] Agent 通信协议集成到辩论流程
+- [ ] 多语言支持
+- [ ] 用户账户系统
+- [ ] 更多预设角色模板
 
-2. **技术提升**：
-   - 改进流式输出性能
-   - 添加更多数据可视化功能
-   - WebSocket 实时通信
+## 📄 许可证
 
-3. **用户体验**：
-   - 用户账户系统
-   - 云端同步设置
-   - 增加更多主题样式
-
-## 贡献指南
-
-我们欢迎各种形式的贡献，包括但不限于：
-
-1. 提交Bug报告
-2. 提出新功能建议
-3. 添加或改进文档
-4. 提交代码改进和新功能
-
-**贡献步骤**：
-
-1. Fork项目
-2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'Add some amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 提交Pull Request
-
-## 许可证
-
-本项目采用Apache 2.0许可证。详情请参阅[LICENSE](LICENSE)文件。
+本项目采用 Apache 2.0 许可证。详情请参阅 [LICENSE](LICENSE) 文件。

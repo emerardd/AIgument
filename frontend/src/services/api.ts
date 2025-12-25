@@ -85,6 +85,62 @@ export const debateAPI = {
      */
     singleRound: (data: { topic: string; round: number }) =>
         api.post('/api/debate/single', data),
+
+    /**
+     * Multi-Agent 流式辩论 - 使用 DebateOrchestrator
+     * 支持思考过程、评分和最终裁决
+     */
+    streamAgentDebate: async (
+        settings: DebateSettings,
+        onEvent: (event: import('@/types').AgentStreamEvent) => void,
+        onError: (error: Error) => void
+    ) => {
+        try {
+            const params = new URLSearchParams({
+                topic: settings.topic,
+                rounds: settings.rounds.toString(),
+                provider: settings.provider,
+                model: settings.model,
+            })
+
+            const response = await fetch(
+                `${API_BASE_URL}/api/debate/agent-stream?${params}`,
+                { method: 'GET' }
+            )
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`)
+            }
+
+            const reader = response.body?.getReader()
+            if (!reader) throw new Error('No response body')
+
+            const decoder = new TextDecoder()
+            let buffer = ''
+
+            while (true) {
+                const { done, value } = await reader.read()
+                if (done) break
+
+                buffer += decoder.decode(value, { stream: true })
+                const lines = buffer.split('\n')
+                buffer = lines.pop() || ''
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6))
+                            onEvent(data)
+                        } catch (e) {
+                            console.error('Failed to parse SSE data:', e)
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            onError(error instanceof Error ? error : new Error('Unknown error'))
+        }
+    },
 }
 
 // ====== 对话 API ======
