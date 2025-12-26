@@ -268,18 +268,20 @@ async def agent_stream_debate(
                 model=model
             )
             
-            # 运行辩论
+            # 运行辩论 - 使用流式版本实现逐字符输出
             messages_to_save = []
             
-            async for event in orchestrator.run_debate():
+            async for event in orchestrator.run_debate_streaming():
                 event_type = event.get("type", "")
                 
-                # 发送事件到客户端
-                print(f"[DEBUG] Event: {event_type}")
+                # 只打印关键事件，避免 argument 刷屏
+                if event_type not in ("argument",):
+                    print(f"[DEBUG] Event: {event_type}")
+                
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
                 
-                # 收集需要保存的消息
-                if event_type == "argument":
+                # 只收集完整论点（argument_complete），避免重复保存流式块
+                if event_type == "argument_complete":
                     messages_to_save.append({
                         "round": event.get("round"),
                         "side": event.get("side"),

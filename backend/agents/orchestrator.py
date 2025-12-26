@@ -476,12 +476,13 @@ class DebateOrchestrator(BaseAgent):
         context: Dict[str, Any]
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """流式执行 Agent ReAct"""
-        async for event in self._async_wrapper(agent.stream_react(context)):
+        # stream_react 已经是异步生成器，直接使用 async for
+        async for event in agent.stream_react(context):
             event["round"] = context.get("round", 1)
             yield event
     
     async def _async_wrapper(self, sync_generator):
-        """将同步生成器包装为异步生成器"""
+        """将同步生成器包装为异步生成器（保留以备其他用途）"""
         for item in sync_generator:
             yield item
             await asyncio.sleep(0)  # 让出控制权

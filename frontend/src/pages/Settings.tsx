@@ -2,7 +2,7 @@ import { useSettingsStore, type Provider } from '@/stores/settingsStore'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Settings, Cpu, Zap, Server, Check, Moon, Sun } from 'lucide-react'
+import { Settings, Cpu, Zap, Server, Check, Moon, Sun, Sliders, Sparkles } from 'lucide-react'
 
 const providerOptions: { value: Provider; label: string; description: string }[] = [
     { value: 'deepseek', label: 'DeepSeek', description: '高性价比，中文能力强' },
@@ -32,22 +32,44 @@ export default function SettingsPage() {
 
     return (
         <div className="min-h-screen gradient-bg">
-            <div className="container mx-auto px-6 py-10 max-w-3xl">
-                {/* Header */}
-                <div className="text-center mb-10 animate-fade-in">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
-                        <Settings className="w-4 h-4" />
+            {/* Hero Section */}
+            <div className="container mx-auto px-4 sm:px-6 py-8 sm:py-16 max-w-3xl">
+                <div className="text-center mb-8 sm:mb-12">
+                    {/* Decorative Badge */}
+                    <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-primary/10 text-primary text-xs sm:text-sm font-medium mb-4 sm:mb-6 animate-scale-in">
+                        <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         <span>应用设置</span>
                     </div>
-                    <h1 className="text-3xl sm:text-4xl font-bold mb-3">
+
+                    {/* Main Title */}
+                    <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-3 sm:mb-4 tracking-tight animate-slide-up delay-100 opacity-0">
                         <span className="text-gradient">偏好设置</span>
                     </h1>
-                    <p className="text-muted-foreground max-w-lg mx-auto">
+
+                    {/* Subtitle */}
+                    <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed animate-slide-up delay-200 opacity-0 px-4 sm:px-0">
                         自定义 AI 模型、外观和其他选项
                     </p>
+
+                    {/* Feature Pills */}
+                    <div className="flex flex-wrap justify-center gap-2 sm:gap-3 mt-6 sm:mt-8 animate-slide-up delay-300 opacity-0">
+                        {[
+                            { icon: Server, label: '多模型支持' },
+                            { icon: Sliders, label: '个性化配置' },
+                            { icon: Sparkles, label: '流式输出' },
+                        ].map(({ icon: Icon, label }) => (
+                            <div
+                                key={label}
+                                className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl glass shadow-soft-sm text-xs sm:text-sm text-muted-foreground hover:scale-105 transition-transform duration-300"
+                            >
+                                <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
+                                <span>{label}</span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
-                <div className="space-y-6">
+                <div className="space-y-6 animate-elastic delay-500 opacity-0">
                     {/* Theme Setting */}
                     <Card className="glass shadow-soft border-0 overflow-hidden animate-fade-in">
                         <CardContent className="p-6">
