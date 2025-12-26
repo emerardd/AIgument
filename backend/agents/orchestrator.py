@@ -12,6 +12,7 @@ from typing import Dict, Any, List, Optional, AsyncGenerator
 from .base_agent import BaseAgent, ThinkResult
 from .debater_agent import DebaterAgent
 from .jury_agent import JuryAgent, RoundEvaluation, FinalVerdict
+from .protocol import MessageBus, MessageTemplates, MessageType, AgentMessage
 from memory.shared_memory import DebateMemory
 import json
 import asyncio
@@ -51,6 +52,9 @@ class DebateOrchestrator(BaseAgent):
         
         # 共享记忆
         self.memory_store: Optional[DebateMemory] = None
+        
+        # 消息总线
+        self.message_bus = MessageBus()
         
         # 状态
         self.debate_state = self.STATE_NOT_STARTED
@@ -102,6 +106,20 @@ class DebateOrchestrator(BaseAgent):
             ai_client=self.ai_client,
             topic=topic
         )
+        
+        # 注册 Agent 到消息总线
+        self.message_bus.subscribe("pro", lambda msg: print(f"[MessageBus] 正方收到: {msg.message_type.value}"))
+        self.message_bus.subscribe("con", lambda msg: print(f"[MessageBus] 反方收到: {msg.message_type.value}"))
+        self.message_bus.subscribe("jury", lambda msg: print(f"[MessageBus] 评审收到: {msg.message_type.value}"))
+        self.message_bus.subscribe("orchestrator", lambda msg: print(f"[MessageBus] 主持人收到: {msg.message_type.value}"))
+        
+        # 发布辩论设置消息
+        setup_msg = MessageTemplates.status(
+            sender="orchestrator",
+            status="debate_setup",
+            details={"topic": topic, "rounds": total_rounds}
+        )
+        self.message_bus.publish(setup_msg)
         
         self.debate_state = self.STATE_READY
         
@@ -222,6 +240,10 @@ class DebateOrchestrator(BaseAgent):
                 thinking=pro_think.analysis
             )
             
+            # 发布正方论点消息到消息总线
+            pro_msg = MessageTemplates.argument(sender="pro", content=pro_argument, round=round_num)
+            self.message_bus.publish(pro_msg)
+            
             debate_context["history"].append({
                 "round": round_num,
                 "side": "pro",
@@ -231,7 +253,7 @@ class DebateOrchestrator(BaseAgent):
             # === 反方发言 ===
             con_context = {
                 "round": round_num,
-                "is_opening": False,
+                "is_opening": round_num == 1,  # 第一轮双方都做开场发言，确保公平
                 "opponent_last_argument": pro_argument,
                 "history": debate_context["history"]
             }
@@ -264,6 +286,10 @@ class DebateOrchestrator(BaseAgent):
                 thinking=con_think.analysis
             )
             
+            # 发布反方论点消息到消息总线
+            con_msg = MessageTemplates.argument(sender="con", content=con_argument, round=round_num)
+            self.message_bus.publish(con_msg)
+            
             debate_context["history"].append({
                 "round": round_num,
                 "side": "con",
@@ -280,6 +306,16 @@ class DebateOrchestrator(BaseAgent):
             
             eval_dict = evaluation.model_dump()
             self.memory_store.add_evaluation(eval_dict)
+            
+            # 发布评审消息到消息总线
+            eval_msg = MessageTemplates.evaluation(
+                sender="jury",
+                receiver="",  # 广播
+                scores={"pro": eval_dict["pro_score"], "con": eval_dict["con_score"]},
+                commentary=evaluation.commentary,
+                round=round_num
+            )
+            self.message_bus.publish(eval_msg)
             
             yield {
                 "type": "evaluation",
@@ -307,6 +343,16 @@ class DebateOrchestrator(BaseAgent):
         
         self.memory_store.complete_debate(verdict_dict)
         
+        # 发布裁决消息到消息总线
+        verdict_msg = MessageTemplates.verdict(
+            sender="jury",
+            winner=verdict.winner,
+            pro_score=verdict.pro_total_score,
+            con_score=verdict.con_total_score,
+            summary=verdict.summary
+        )
+        self.message_bus.publish(verdict_msg)
+        
         yield {
             "type": "verdict",
             "winner": verdict.winner,
@@ -325,7 +371,8 @@ class DebateOrchestrator(BaseAgent):
         yield {
             "type": "complete",
             "message": "辩论结束",
-            "final_state": self.memory_store.get_full_state()
+            "final_state": self.memory_store.get_full_state(),
+            "message_history": self.message_bus.export_history()  # 导出消息历史
         }
     
     async def run_debate_streaming(self) -> AsyncGenerator[Dict[str, Any], None]:
@@ -379,7 +426,7 @@ class DebateOrchestrator(BaseAgent):
             # 反方上下文
             con_context = {
                 "round": round_num,
-                "is_opening": False,
+                "is_opening": round_num == 1,  # 第一轮双方都做开场发言
                 "opponent_last_argument": pro_full_argument,
                 "history": debate_context["history"]
             }

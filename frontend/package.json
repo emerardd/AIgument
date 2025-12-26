@@ -20,6 +20,7 @@
     "framer-motion": "^12.23.25",
     "lightningcss": "^1.30.2",
     "lucide-react": "^0.555.0",
+    "mermaid": "^11.12.2",
     "next": "^16.0.7",
     "postcss": "^8.5.6",
     "prismjs": "^1.30.0",

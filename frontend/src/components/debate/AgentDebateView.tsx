@@ -9,6 +9,7 @@ import type { DebateSettings, AgentStreamEvent, AgentThinking, RoundEvaluation }
 import { CopyButton } from '@/components/ui/CopyButton'
 import { ThinkingBubble } from './ThinkingBubble'
 import { EvaluationPanel, StandingsPanel, VerdictPanel } from './ScorePanel'
+import { ArgumentGraphView } from './ArgumentGraphView'
 import {
     Loader2, ThumbsUp, ThumbsDown, ArrowRight,
     Brain, Eye, EyeOff, Sparkles, Settings2
@@ -27,6 +28,7 @@ export function AgentDebateView() {
         evaluations,
         standings,
         verdict,
+        sessionId,
         currentRound,
         totalRounds: _totalRounds,
         showThinking,
@@ -441,6 +443,13 @@ export function AgentDebateView() {
                         conStrengths={verdict.con_strengths}
                         keyTurningPoints={verdict.key_turning_points}
                     />
+                )}
+
+                {/* 论点图谱分析 - 辩论完成后显示 */}
+                {verdict && sessionId && (
+                    <div className="mt-8 animate-fade-in">
+                        <ArgumentGraphView sessionId={sessionId} />
+                    </div>
                 )}
 
                 <div ref={messagesEndRef} />

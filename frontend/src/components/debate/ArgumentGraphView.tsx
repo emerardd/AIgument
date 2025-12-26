@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Network, GitBranch, Target, Trophy, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react'
+import { MermaidRenderer } from '@/components/ui/MermaidRenderer'
 
 interface ArgumentNode {
     id: string
@@ -150,16 +151,25 @@ export function ArgumentGraphView({ sessionId }: ArgumentGraphViewProps) {
                     {/* 图谱可视化 */}
                     <GraphVisualization nodes={graph.nodes} edges={graph.edges} />
 
-                    {/* Mermaid 代码（可选） */}
+                    {/* Mermaid 图谱可视化 */}
                     {mermaid && (
-                        <details className="p-3 rounded-lg bg-muted/20">
-                            <summary className="text-xs text-muted-foreground cursor-pointer">
-                                查看 Mermaid 图表代码
-                            </summary>
-                            <pre className="mt-2 text-xs overflow-x-auto p-2 bg-muted/30 rounded">
-                                {mermaid}
-                            </pre>
-                        </details>
+                        <div className="space-y-3">
+                            <div className="p-4 rounded-xl bg-muted/20 border border-border/50">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <GitBranch className="w-4 h-4 text-primary" />
+                                    <span className="text-sm font-medium">论点关系图</span>
+                                </div>
+                                <MermaidRenderer code={mermaid} className="min-h-[200px]" />
+                            </div>
+                            <details className="p-3 rounded-lg bg-muted/20">
+                                <summary className="text-xs text-muted-foreground cursor-pointer">
+                                    查看 Mermaid 图表代码
+                                </summary>
+                                <pre className="mt-2 text-xs overflow-x-auto p-2 bg-muted/30 rounded">
+                                    {mermaid}
+                                </pre>
+                            </details>
+                        </div>
                     )}
                 </div>
             )}
