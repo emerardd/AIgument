@@ -6,7 +6,7 @@ Agent 抽象基类
 
 from abc import ABC, abstractmethod
 from typing import Any, Optional, List, Dict
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 import json
 
@@ -23,8 +23,7 @@ class AgentState(BaseModel):
     current_strategy: Optional[str] = Field(default=None, description="当前策略")
     created_at: datetime = Field(default_factory=datetime.now, description="创建时间")
     
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class AgentMessage(BaseModel):

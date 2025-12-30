@@ -80,10 +80,20 @@ async def general_exception_handler(request: Request, exc: Exception):
 # 请求日志中间件
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    """记录请求日志"""
+    """记录请求日志并添加追踪 ID"""
+    from utils.logger import generate_request_id, set_request_id
+    
+    # 生成并设置请求追踪 ID
+    request_id = generate_request_id()
+    set_request_id(request_id)
+    
     start_time = time.time()
     response = await call_next(request)
     duration = (time.time() - start_time) * 1000
+    
+    # 添加追踪 ID 到响应头
+    response.headers["X-Request-ID"] = request_id
+    
     logger.info(f"{request.method} {request.url.path} - {response.status_code} ({duration:.2f}ms)")
     return response
 

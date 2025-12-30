@@ -1,16 +1,37 @@
 """
 日志配置模块
 
-提供统一的日志管理，支持彩色输出和结构化日志
+提供统一的日志管理，支持彩色输出、结构化日志和请求追踪
 """
 import logging
 import sys
+import uuid
 from typing import Optional
 from datetime import datetime
+from contextvars import ContextVar
+
+# 请求追踪 ID 上下文变量
+request_id_var: ContextVar[str] = ContextVar('request_id', default='')
+
+
+def generate_request_id() -> str:
+    """生成请求追踪 ID"""
+    return uuid.uuid4().hex[:12]
+
+
+def set_request_id(request_id: str) -> str:
+    """设置当前请求的追踪 ID"""
+    request_id_var.set(request_id)
+    return request_id
+
+
+def get_request_id() -> str:
+    """获取当前请求的追踪 ID"""
+    return request_id_var.get()
 
 
 class ColoredFormatter(logging.Formatter):
-    """彩色日志格式化器"""
+    """彩色日志格式化器，支持请求追踪 ID"""
     
     # ANSI 颜色代码
     COLORS = {
@@ -27,6 +48,13 @@ class ColoredFormatter(logging.Formatter):
         levelname = record.levelname
         if levelname in self.COLORS:
             record.levelname = f"{self.COLORS[levelname]}{levelname}{self.RESET}"
+        
+        # 添加请求 ID
+        request_id = get_request_id()
+        if request_id:
+            record.request_id = f"[{request_id}] "
+        else:
+            record.request_id = ""
         
         return super().format(record)
 
@@ -55,9 +83,9 @@ def get_logger(name: str, level: Optional[int] = None) -> logging.Logger:
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(level or logging.INFO)
     
-    # 设置格式
+    # 设置格式（包含请求 ID）
     formatter = ColoredFormatter(
-        fmt='%(asctime)s | %(levelname)-8s | %(name)s | %(message)s',
+        fmt='%(asctime)s | %(levelname)-8s | %(request_id)s%(name)s | %(message)s',
         datefmt='%H:%M:%S'
     )
     console_handler.setFormatter(formatter)

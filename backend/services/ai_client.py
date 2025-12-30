@@ -1,8 +1,10 @@
 """
 AI客户端封装 - 支持多提供商
+
+提供统一的 AI 调用接口，支持连接池复用
 """
 from openai import OpenAI
-from typing import Generator, Optional
+from typing import Generator, Optional, Dict
 import os
 import sys
 import httpx
@@ -11,7 +13,41 @@ from config import get_settings
 
 
 class AIClient:
-    """统一的AI客户端封装，支持 DeepSeek, OpenAI, Gemini, Claude"""
+    """统一的AI客户端封装，支持 DeepSeek, OpenAI, Gemini, Claude
+    
+    特性：
+    - 连接池复用：相同配置的客户端将被复用
+    - 超时配置：合理的超时设置
+    - 多提供商支持：DeepSeek、OpenAI、Gemini、Claude
+    """
+    
+    # 类级别连接池，复用 OpenAI 客户端
+    _client_pool: Dict[str, OpenAI] = {}
+    
+    @classmethod
+    def _get_pool_key(cls, provider: str, api_key: str, base_url: str = "") -> str:
+        """生成连接池的键"""
+        return f"{provider}:{api_key[:8]}:{base_url}"
+    
+    @classmethod
+    def _get_or_create_client(
+        cls, 
+        provider: str, 
+        api_key: str, 
+        base_url: str,
+        timeout: httpx.Timeout
+    ) -> OpenAI:
+        """获取或创建 OpenAI 客户端（连接池复用）"""
+        pool_key = cls._get_pool_key(provider, api_key, base_url)
+        
+        if pool_key not in cls._client_pool:
+            cls._client_pool[pool_key] = OpenAI(
+                api_key=api_key,
+                base_url=base_url,
+                timeout=timeout
+            )
+        
+        return cls._client_pool[pool_key]
     
     def __init__(self, provider: str = "deepseek", model: str = "deepseek-chat", api_key: Optional[str] = None):
         self.provider = provider
@@ -23,17 +59,13 @@ class AIClient:
         
         if provider == "deepseek":
             final_api_key = api_key or settings.deepseek_api_key or os.getenv("DEEPSEEK_API_KEY")
-            self.client = OpenAI(
-                api_key=final_api_key,
-                base_url=settings.deepseek_api_base,
-                timeout=timeout
+            self.client = self._get_or_create_client(
+                provider, final_api_key, settings.deepseek_api_base, timeout
             )
         elif provider == "openai":
             final_api_key = api_key or settings.openai_api_key or os.getenv("OPENAI_API_KEY")
-            self.client = OpenAI(
-                api_key=final_api_key,
-                base_url=settings.openai_api_base,
-                timeout=timeout
+            self.client = self._get_or_create_client(
+                provider, final_api_key, settings.openai_api_base, timeout
             )
         elif provider == "gemini":
             final_api_key = api_key or settings.gemini_api_key or os.getenv("GEMINI_API_KEY")
