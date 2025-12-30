@@ -20,19 +20,21 @@ from schemas.qa import QARequest
 from services.ai_client import AIClient
 from services.socratic_qa import create_socratic_qa, SocraticQAService
 from utils import get_api_key
+from prompt_vcs import p
 
 router = APIRouter(prefix="/api", tags=["qa"])
 
 
 def get_style_prompt(style: str) -> str:
-    """根据风格获取系统提示词"""
-    prompts = {
-        "professional": "你是一个专业的知识助手，请用准确、专业的方式回答问题。使用适当的术语，提供详实的信息。",
-        "casual": "你是一个友好的聊天伙伴，请用轻松、口语化的方式回答问题。可以适当使用表情和语气词。",
-        "detailed": "你是一个详细讲解的老师，请从多个角度全面回答问题。提供背景知识、相关概念和具体示例。",
-        "concise": "你是一个高效的助手，请用简洁明了的方式回答问题。直接给出核心答案，不要太多铺垫。"
+    """根据风格获取系统提示词（使用 prompt-vcs 管理）"""
+    style_map = {
+        "professional": ("qa_professional", "你是一个专业的知识助手，请用准确、专业的方式回答问题。使用适当的术语，提供详实的信息。"),
+        "casual": ("qa_casual", "你是一个友好的聊天伙伴，请用轻松、口语化的方式回答问题。可以适当使用表情和语气词。"),
+        "detailed": ("qa_detailed", "你是一个详细讲解的老师，请从多个角度全面回答问题。提供背景知识、相关概念和具体示例。"),
+        "concise": ("qa_concise", "你是一个高效的助手，请用简洁明了的方式回答问题。直接给出核心答案，不要太多铺垫。")
     }
-    return prompts.get(style, prompts["professional"])
+    prompt_id, default = style_map.get(style, style_map["professional"])
+    return p(prompt_id, default)
 
 
 @router.post("/qa")

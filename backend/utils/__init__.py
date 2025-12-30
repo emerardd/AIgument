@@ -1,8 +1,9 @@
 """
-公共工具函数
+工具模块
 """
 import os
 from config import get_settings
+from .logger import get_logger, log_request, log_ai_call, log_debate_event
 
 
 def get_api_key(provider: str = "deepseek") -> str:
@@ -17,3 +18,12 @@ def get_api_key(provider: str = "deepseek") -> str:
     elif provider == "claude":
         return settings.claude_api_key or os.getenv("CLAUDE_API_KEY", "")
     return ""
+
+
+__all__ = [
+    "get_logger",
+    "log_request", 
+    "log_ai_call",
+    "log_debate_event",
+    "get_api_key"
+]

@@ -19,11 +19,16 @@ from schemas.chat import ChatRequest, ChatMessage
 from services.ai_client import AIClient
 from services.dual_chat import create_dual_chat, ROLE_TEMPLATES
 from utils import get_api_key
+from prompt_vcs import p
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
-
-CHAT_SYSTEM_PROMPT = """你是一个有帮助的AI助手。请用中文回答用户的问题，保持友好和专业。"""
+def get_chat_system_prompt() -> str:
+    """获取对话系统提示词（使用 prompt-vcs 管理）"""
+    return p(
+        "chat_system",
+        "你是一个有帮助的AI助手。请用中文回答用户的问题，保持友好和专业。"
+    )
 
 
 @router.post("/chat")
@@ -37,7 +42,7 @@ async def chat(request: ChatRequest, db: DBSession = Depends(get_db)):
         client = AIClient(provider=request.provider, model=request.model, api_key=api_key)
         
         # 构建消息
-        messages = [{"role": "system", "content": CHAT_SYSTEM_PROMPT}]
+        messages = [{"role": "system", "content": get_chat_system_prompt()}]
         for msg in request.history:
             messages.append({"role": msg.role, "content": msg.content})
         messages.append({"role": "user", "content": request.message})
@@ -91,7 +96,7 @@ def stream_chat(
             history_list = json.loads(history) if history else []
             
             # 构建消息
-            messages = [{"role": "system", "content": CHAT_SYSTEM_PROMPT}]
+            messages = [{"role": "system", "content": get_chat_system_prompt()}]
             for msg in history_list:
                 messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
             messages.append({"role": "user", "content": message})
