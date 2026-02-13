@@ -14,7 +14,9 @@ class Debater:
         system_prompt: str, 
         provider: str = "deepseek", 
         model: str = "deepseek-chat",
-        api_key: Optional[str] = None
+        api_key: Optional[str] = None,
+        temperature: float = 0.7,
+        seed: Optional[int] = None
     ):
         """
         初始化辩论者
@@ -28,8 +30,9 @@ class Debater:
         self.system_prompt = system_prompt
         self.provider = provider
         self.model = model
+        self.temperature = temperature
         self.conversation_history: list[dict] = []
-        self.client = AIClient(provider=provider, model=model, api_key=api_key)
+        self.client = AIClient(provider=provider, model=model, api_key=api_key, seed=seed)
     
     def _build_messages(self, opponent_message: str) -> list[dict]:
         """构建消息列表"""
@@ -45,7 +48,7 @@ class Debater:
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                response_content = self.client.get_completion(messages)
+                response_content = self.client.get_completion(messages, temperature=self.temperature)
                 
                 # 更新对话历史
                 self.conversation_history.append({"role": "user", "content": opponent_message})
@@ -67,7 +70,7 @@ class Debater:
         
         try:
             full_response = ""
-            for content in self.client.chat_stream(messages):
+            for content in self.client.chat_stream(messages, temperature=self.temperature):
                 full_response += content
                 yield content
             

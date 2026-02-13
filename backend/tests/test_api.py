@@ -34,7 +34,11 @@ class TestHistoryAPI:
         response = client.get("/api/history")
         assert response.status_code == 200
         data = response.json()
-        assert isinstance(data, list)
+        assert isinstance(data, dict)
+        assert "history" in data
+        assert "total" in data
+        assert isinstance(data["history"], list)
+        assert isinstance(data["total"], int)
 
 
 # 注意：以下测试需要 AI API Key，CI 中可能跳过

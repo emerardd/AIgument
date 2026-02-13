@@ -53,6 +53,7 @@ export function HistoryList({ onViewDetail }: HistoryListProps) {
     const getTypeLabel = (type: string) => {
         const labels: Record<string, { text: string; color: string }> = {
             debate: { text: '辩论', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+            dialectic: { text: '辩证法', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
             chat: { text: '对话', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
             qa: { text: '问答', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
         }
@@ -75,7 +76,7 @@ export function HistoryList({ onViewDetail }: HistoryListProps) {
         <div className="space-y-6">
             {/* 过滤器 */}
             <div className="flex gap-2 flex-wrap">
-                {(['all', 'debate', 'chat', 'qa'] as const).map((f) => (
+                {(['all', 'debate', 'dialectic', 'chat', 'qa'] as const).map((f) => (
                     <Button
                         key={f}
                         variant={filter === f ? 'default' : 'outline'}
@@ -83,7 +84,15 @@ export function HistoryList({ onViewDetail }: HistoryListProps) {
                         onClick={() => setFilter(f)}
                         className={filter === f ? 'bg-gradient-to-r from-blue-500 to-cyan-500' : ''}
                     >
-                        {f === 'all' ? '全部' : f === 'debate' ? '辩论' : f === 'chat' ? '对话' : '问答'}
+                        {f === 'all'
+                            ? '全部'
+                            : f === 'debate'
+                                ? '辩论'
+                                : f === 'dialectic'
+                                    ? '辩证法'
+                                    : f === 'chat'
+                                        ? '对话'
+                                        : '问答'}
                     </Button>
                 ))}
             </div>

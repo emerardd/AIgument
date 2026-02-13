@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { Moon, Sun, History, Sparkles, Settings, Brain, Users, Lightbulb } from 'lucide-react'
+import { Moon, Sun, History, Sparkles, Settings, Brain, Users, Lightbulb, GitBranch } from 'lucide-react'
 import { useSettingsStore } from '@/stores/settingsStore'
 
 export function Navbar() {
@@ -10,6 +10,7 @@ export function Navbar() {
     const isActive = (path: string) => location.pathname === path
 
     const navItems = [
+        { path: '/dialectic-engine', label: '辩证法引擎', icon: GitBranch },
         { path: '/agent-debate', label: 'Agent辩论', icon: Brain },
         { path: '/dual-chat', label: '角色对话', icon: Users },
         { path: '/socratic-qa', label: '思考问答', icon: Lightbulb },

@@ -38,7 +38,8 @@ class DebaterAgent(BaseAgent):
         name: str, 
         position: str,  # "pro" 或 "con"
         ai_client,
-        topic: str = ""
+        topic: str = "",
+        temperature: float = 0.7
     ):
         """初始化辩论者 Agent
         
@@ -52,6 +53,7 @@ class DebaterAgent(BaseAgent):
         self.position = position
         self.position_label = "正方（支持方）" if position == "pro" else "反方（反对方）"
         self.topic = topic
+        self.temperature = temperature
         self.argument_history: List[str] = []
         self.opponent_arguments: List[str] = []
         
@@ -202,7 +204,7 @@ class DebaterAgent(BaseAgent):
         ]
         
         try:
-            response = self.ai_client.get_completion(messages, temperature=0.7)
+            response = self.ai_client.get_completion(messages, temperature=self.temperature)
             analysis = self._parse_json_response(response, {
                 "opponent_weaknesses": [],
                 "selected_strategy": "direct_refute",
@@ -257,7 +259,7 @@ class DebaterAgent(BaseAgent):
         ]
         
         try:
-            response = self.ai_client.get_completion(messages, temperature=0.8)
+            response = self.ai_client.get_completion(messages, temperature=self.temperature)
             
             # 清理响应
             response = response.strip()
@@ -344,7 +346,7 @@ class DebaterAgent(BaseAgent):
         
         full_response = ""
         try:
-            for chunk in self.ai_client.chat_stream(messages, temperature=0.8):
+            for chunk in self.ai_client.chat_stream(messages, temperature=self.temperature):
                 full_response += chunk
                 yield {
                     "type": "argument",

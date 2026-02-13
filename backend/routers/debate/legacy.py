@@ -4,6 +4,7 @@
 非 Multi-Agent 的简单辩论接口
 """
 import json
+from typing import Optional, Literal
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session as DBSession
@@ -14,13 +15,22 @@ from schemas.debate import DebateRequest
 from services.debater import Debater
 from utils import get_api_key
 from utils.logger import get_logger
+from config import RUN_CONFIG_PRESETS
 
 logger = get_logger(__name__)
 
 router = APIRouter()
 
 
-def create_debater(name: str, position: str, provider: str, model: str, api_key: str) -> Debater:
+def create_debater(
+    name: str,
+    position: str,
+    provider: str,
+    model: str,
+    api_key: str,
+    temperature: float,
+    seed: Optional[int]
+) -> Debater:
     """创建辩论者实例"""
     system_prompt = f"""你是一个专业的辩论选手，代表{position}。
 你需要用清晰的逻辑和有力的论据来支持你的立场。
@@ -35,7 +45,9 @@ def create_debater(name: str, position: str, provider: str, model: str, api_key:
         system_prompt=system_prompt,
         provider=provider,
         model=model,
-        api_key=api_key
+        api_key=api_key,
+        temperature=temperature,
+        seed=seed
     )
 
 
@@ -47,15 +59,23 @@ async def debate(request: DebateRequest, db: DBSession = Depends(get_db)):
     
     try:
         api_key = get_api_key(request.provider)
+        preset_config = RUN_CONFIG_PRESETS.get(request.preset, {}) if request.preset else {}
+        temperature = request.temperature if request.temperature is not None else preset_config.get("temperature", 0.7)
+        seed = request.seed if request.seed is not None else preset_config.get("seed")
+        max_rounds = preset_config.get("max_rounds")
+        total_rounds = min(request.rounds, max_rounds) if max_rounds else request.rounds
         
         # 创建会话记录
         session = Session(
             session_type="debate",
             topic=request.topic,
             settings={
-                "rounds": request.rounds,
+                "rounds": total_rounds,
                 "provider": request.provider,
-                "model": request.model
+                "model": request.model,
+                "temperature": temperature,
+                "seed": seed,
+                "preset": request.preset
             }
         )
         db.add(session)
@@ -65,15 +85,19 @@ async def debate(request: DebateRequest, db: DBSession = Depends(get_db)):
         logger.info(f"创建辩论会话: {session.id}, 主题: {request.topic}")
         
         # 创建辩论者
-        pro_debater = create_debater("正方", "正方（支持方）", request.provider, request.model, api_key)
-        con_debater = create_debater("反方", "反方（反对方）", request.provider, request.model, api_key)
+        pro_debater = create_debater(
+            "正方", "正方（支持方）", request.provider, request.model, api_key, temperature, seed
+        )
+        con_debater = create_debater(
+            "反方", "反方（反对方）", request.provider, request.model, api_key, temperature, seed
+        )
         
         messages = []
         
         # 开场白
         opening = f"辩题：{request.topic}\n请正方开始第一轮发言。"
         
-        for round_num in range(1, request.rounds + 1):
+        for round_num in range(1, total_rounds + 1):
             # 正方发言
             pro_input = opening if round_num == 1 else messages[-1]["content"]
             pro_response = pro_debater.generate_response(pro_input)
@@ -116,6 +140,9 @@ def stream_debate(
     rounds: int = 3,
     provider: str = "deepseek",
     model: str = "deepseek-chat",
+    temperature: Optional[float] = None,
+    seed: Optional[int] = None,
+    preset: Optional[Literal["basic", "quality", "budget"]] = None,
     db: DBSession = Depends(get_db)
 ):
     """流式辩论接口"""
@@ -123,15 +150,23 @@ def stream_debate(
     def generate():
         try:
             api_key = get_api_key(provider)
+            preset_config = RUN_CONFIG_PRESETS.get(preset, {}) if preset else {}
+            final_temperature = temperature if temperature is not None else preset_config.get("temperature", 0.7)
+            final_seed = seed if seed is not None else preset_config.get("seed")
+            max_rounds = preset_config.get("max_rounds")
+            total_rounds = min(rounds, max_rounds) if max_rounds else rounds
             
             # 创建会话记录
             session = Session(
                 session_type="debate",
                 topic=topic,
                 settings={
-                    "rounds": rounds,
+                    "rounds": total_rounds,
                     "provider": provider,
-                    "model": model
+                    "model": model,
+                    "temperature": final_temperature,
+                    "seed": final_seed,
+                    "preset": preset
                 }
             )
             db.add(session)
@@ -142,13 +177,17 @@ def stream_debate(
             yield f"data: {json.dumps({'type': 'session', 'session_id': session.id})}\n\n"
             
             # 创建辩论者
-            pro_debater = create_debater("正方", "正方（支持方）", provider, model, api_key)
-            con_debater = create_debater("反方", "反方（反对方）", provider, model, api_key)
+            pro_debater = create_debater(
+                "正方", "正方（支持方）", provider, model, api_key, final_temperature, final_seed
+            )
+            con_debater = create_debater(
+                "反方", "反方（反对方）", provider, model, api_key, final_temperature, final_seed
+            )
             
             opening = f"辩题：{topic}\n请正方开始第一轮发言。"
             last_response = ""
             
-            for round_num in range(1, rounds + 1):
+            for round_num in range(1, total_rounds + 1):
                 # 正方发言
                 pro_input = opening if round_num == 1 else last_response
                 pro_full = ""

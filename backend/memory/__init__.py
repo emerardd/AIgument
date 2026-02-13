@@ -13,6 +13,7 @@ from .argument_graph import (
     RelationType,
     ArgumentStrength,
 )
+from .dialectic_memory import DialecticMemory
 
 __all__ = [
     "SharedMemory",
@@ -23,5 +24,6 @@ __all__ = [
     "ArgumentAnalyzer",
     "RelationType",
     "ArgumentStrength",
+    "DialecticMemory",
 ]
 

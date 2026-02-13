@@ -16,7 +16,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import get_settings
 from database import init_db
 from routers.debate import router as debate_router
-from routers import chat, qa, history
+from routers import chat, qa, history, evaluation
+from routers import dialectic
 from exceptions import AIgumentException
 from utils.logger import get_logger
 
@@ -103,6 +104,8 @@ app.include_router(debate_router)
 app.include_router(chat.router)
 app.include_router(qa.router)
 app.include_router(history.router)
+app.include_router(evaluation.router)
+app.include_router(dialectic.router, prefix="/api", tags=["dialectic"])
 
 
 @app.get("/")

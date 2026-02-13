@@ -97,6 +97,11 @@ class DebateMemory(SharedMemory):
         self.set("total_rounds", total_rounds)
         self.set("pro_score", 0)
         self.set("con_score", 0)
+        self.set("run_config", None)
+
+    def set_run_config(self, run_config: Dict[str, Any]) -> None:
+        """设置运行配置"""
+        self.set("run_config", run_config)
     
     def start_debate(self) -> None:
         """开始辩论"""
@@ -249,6 +254,7 @@ class DebateMemory(SharedMemory):
             "total_rounds": self.total_rounds,
             "current_round": self.current_round,
             "status": self.status,
+            "run_config": self.get("run_config"),
             "standings": self.get_current_standings(),
             "arguments": [
                 {

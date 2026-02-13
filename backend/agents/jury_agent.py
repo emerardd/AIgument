@@ -70,7 +70,7 @@ class JuryAgent(BaseAgent):
         "rebuttal": "反驳有效性 - 对对方论点的回应是否有力",
     }
     
-    def __init__(self, ai_client, topic: str = ""):
+    def __init__(self, ai_client, topic: str = "", temperature: float = 0.5):
         """初始化评审 Agent
         
         Args:
@@ -79,6 +79,7 @@ class JuryAgent(BaseAgent):
         """
         super().__init__(name="评审", role="jury", ai_client=ai_client)
         self.topic = topic
+        self.temperature = temperature
         self.evaluations: List[RoundEvaluation] = []
         self.pro_scores: List[RoundScore] = []
         self.con_scores: List[RoundScore] = []
@@ -256,7 +257,7 @@ class JuryAgent(BaseAgent):
         ]
         
         try:
-            response = self.ai_client.get_completion(messages, temperature=0.5)
+            response = self.ai_client.get_completion(messages, temperature=self.temperature)
             result = self._parse_json_response(response, {
                 "pro_score": {"logic": 5, "evidence": 5, "rhetoric": 5, "rebuttal": 5},
                 "con_score": {"logic": 5, "evidence": 5, "rhetoric": 5, "rebuttal": 5},
@@ -341,7 +342,7 @@ class JuryAgent(BaseAgent):
         ]
         
         try:
-            response = self.ai_client.get_completion(messages, temperature=0.3)
+            response = self.ai_client.get_completion(messages, temperature=self.temperature)
             result = self._parse_json_response(response, {})
             
             # 计算总分

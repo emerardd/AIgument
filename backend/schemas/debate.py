@@ -26,7 +26,7 @@ class DebateRequest(BaseModel):
         le=10, 
         description="辩论轮次数量"
     )
-    provider: Literal["deepseek", "openai", "gemini", "claude"] = Field(
+    provider: Literal["deepseek", "openai", "gemini", "claude", "mock"] = Field(
         default="deepseek", 
         description="AI 提供商"
     )
@@ -38,6 +38,23 @@ class DebateRequest(BaseModel):
     stream: bool = Field(
         default=True, 
         description="是否使用流式输出"
+    )
+
+    temperature: Optional[float] = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="采样温度（可选）"
+    )
+
+    seed: Optional[int] = Field(
+        default=None,
+        description="随机种子（可复现）"
+    )
+
+    preset: Optional[Literal["basic", "quality", "budget"]] = Field(
+        default=None,
+        description="运行配置预设：basic/quality/budget"
     )
     
     model_config = {

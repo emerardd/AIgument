@@ -56,6 +56,9 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
         const colors: Record<string, string> = {
             正方: 'border-l-blue-500 bg-blue-50 dark:bg-blue-900/10',
             反方: 'border-l-red-500 bg-red-50 dark:bg-red-900/10',
+            正题: 'border-l-emerald-500 bg-emerald-50 dark:bg-emerald-900/10',
+            反题: 'border-l-amber-500 bg-amber-50 dark:bg-amber-900/10',
+            合题: 'border-l-violet-500 bg-violet-50 dark:bg-violet-900/10',
             topic: 'border-l-gray-500 bg-gray-50 dark:bg-gray-900/10',
             user: 'border-l-green-500 bg-green-50 dark:bg-green-900/10',
             assistant: 'border-l-purple-500 bg-purple-50 dark:bg-purple-900/10',
@@ -67,6 +70,9 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
         const labels: Record<string, { text: string; emoji: string }> = {
             正方: { text: '正方', emoji: '👍' },
             反方: { text: '反方', emoji: '👎' },
+            正题: { text: '正题', emoji: '🧠' },
+            反题: { text: '反题', emoji: '⚡' },
+            合题: { text: '合题', emoji: '🔺' },
             topic: { text: '主题', emoji: '📌' },
             user: { text: '用户', emoji: '👤' },
             assistant: { text: 'AI', emoji: '🤖' },

@@ -14,6 +14,8 @@ from .debater_agent import DebaterAgent
 from .jury_agent import JuryAgent, RoundEvaluation, FinalVerdict
 from .protocol import MessageBus, MessageTemplates, MessageType, AgentMessage
 from memory.shared_memory import DebateMemory
+from config import RUN_CONFIG_PRESETS, MODEL_PRICING
+from utils.costing import estimate_cost
 import json
 import asyncio
 
@@ -61,13 +63,17 @@ class DebateOrchestrator(BaseAgent):
         self.topic = ""
         self.total_rounds = 3
         self.current_round = 0
+        self.run_config: Dict[str, Any] = {}
     
     async def setup_debate(
         self, 
         topic: str, 
         total_rounds: int = 3,
         provider: str = "deepseek",
-        model: str = "deepseek-chat"
+        model: str = "deepseek-chat",
+        temperature: Optional[float] = None,
+        seed: Optional[int] = None,
+        preset: Optional[str] = None
     ) -> Dict[str, Any]:
         """初始化辩论
         
@@ -81,30 +87,55 @@ class DebateOrchestrator(BaseAgent):
             初始化状态
         """
         self.topic = topic
+
+        preset_config = RUN_CONFIG_PRESETS.get(preset, {}) if preset else {}
+        if temperature is None:
+            temperature = preset_config.get("temperature", 0.7)
+        if seed is None:
+            seed = preset_config.get("seed")
+        max_rounds = preset_config.get("max_rounds")
+        if max_rounds:
+            total_rounds = min(total_rounds, max_rounds)
         self.total_rounds = total_rounds
+
+        self.run_config = {
+            "provider": provider,
+            "model": model,
+            "temperature": temperature,
+            "seed": seed,
+            "max_rounds": total_rounds,
+            "preset": preset
+        }
+
+        if hasattr(self.ai_client, "seed"):
+            self.ai_client.seed = seed
         
         # 创建共享记忆
         self.memory_store = DebateMemory(topic=topic, total_rounds=total_rounds)
+        self.memory_store.set_run_config(self.run_config)
         
         # 创建辩论者 Agent
         self.pro_agent = DebaterAgent(
             name="正方",
             position="pro",
             ai_client=self.ai_client,
-            topic=topic
+            topic=topic,
+            temperature=temperature
         )
         
         self.con_agent = DebaterAgent(
             name="反方",
             position="con",
             ai_client=self.ai_client,
-            topic=topic
+            topic=topic,
+            temperature=temperature
         )
         
         # 创建评审 Agent
         self.jury_agent = JuryAgent(
             ai_client=self.ai_client,
-            topic=topic
+            topic=topic,
+            temperature=max(0.1, temperature - 0.2)
         )
         
         # 注册 Agent 到消息总线
@@ -117,7 +148,7 @@ class DebateOrchestrator(BaseAgent):
         setup_msg = MessageTemplates.status(
             sender="orchestrator",
             status="debate_setup",
-            details={"topic": topic, "rounds": total_rounds}
+            details={"topic": topic, "rounds": total_rounds, "run_config": self.run_config}
         )
         self.message_bus.publish(setup_msg)
         
@@ -138,7 +169,8 @@ class DebateOrchestrator(BaseAgent):
                 "pro": self.pro_agent.get_stats(),
                 "con": self.con_agent.get_stats(),
                 "jury": "评审就位"
-            }
+            },
+            "run_config": self.run_config
         }
     
     async def think(self, context: Dict[str, Any]) -> ThinkResult:
@@ -341,6 +373,7 @@ class DebateOrchestrator(BaseAgent):
         verdict = await self.jury_agent.final_verdict()
         verdict_dict = verdict.model_dump()
         
+        self.memory_store.set("verdict", verdict_dict)
         self.memory_store.complete_debate(verdict_dict)
         
         # 发布裁决消息到消息总线
@@ -413,12 +446,15 @@ class DebateOrchestrator(BaseAgent):
             
             # 正方流式输出
             pro_full_argument = ""
+            pro_thinking = None
             async for event in self._stream_agent_react(self.pro_agent, pro_context):
+                if event.get("type") == "thinking":
+                    pro_thinking = event.get("content")
                 yield event
                 if event.get("type") == "argument_complete":
                     pro_full_argument = event.get("content", "")
             
-            self.memory_store.add_argument("pro", "正方", pro_full_argument)
+            self.memory_store.add_argument("pro", "正方", pro_full_argument, thinking=pro_thinking)
             debate_context["history"].append({
                 "round": round_num, "side": "pro", "content": pro_full_argument
             })
@@ -433,12 +469,15 @@ class DebateOrchestrator(BaseAgent):
             
             # 反方流式输出
             con_full_argument = ""
+            con_thinking = None
             async for event in self._stream_agent_react(self.con_agent, con_context):
+                if event.get("type") == "thinking":
+                    con_thinking = event.get("content")
                 yield event
                 if event.get("type") == "argument_complete":
                     con_full_argument = event.get("content", "")
             
-            self.memory_store.add_argument("con", "反方", con_full_argument)
+            self.memory_store.add_argument("con", "反方", con_full_argument, thinking=con_thinking)
             debate_context["history"].append({
                 "round": round_num, "side": "con", "content": con_full_argument
             })
@@ -463,9 +502,11 @@ class DebateOrchestrator(BaseAgent):
         
         # 最终裁决
         verdict = await self.jury_agent.final_verdict()
-        self.memory_store.complete_debate(verdict.model_dump())
+        verdict_dict = verdict.model_dump()
+        self.memory_store.set("verdict", verdict_dict)
+        self.memory_store.complete_debate(verdict_dict)
         
-        yield {"type": "verdict", **verdict.model_dump()}
+        yield {"type": "verdict", **verdict_dict}
         
         self.debate_state = self.STATE_COMPLETED
         yield {"type": "complete"}
@@ -512,3 +553,58 @@ class DebateOrchestrator(BaseAgent):
         if self.memory_store:
             return self.memory_store.get_full_state()
         return {}
+
+    def build_trace(self) -> Dict[str, Any]:
+        """构建辩论 Trace"""
+        if not self.memory_store:
+            return {}
+
+        evaluations = self.memory_store.evaluations or []
+        verdict = self.memory_store.get("verdict")
+
+        def score_for_round(round_num: int, side: str) -> Optional[Dict[str, Any]]:
+            eval_ = next((e for e in evaluations if e.get("round") == round_num), None)
+            if not eval_:
+                return None
+            side_key = f"{side}_score"
+            score = eval_.get(side_key)
+            if isinstance(score, dict):
+                total = sum(score.values())
+                return {**score, "total": total}
+            return {"total": score}
+
+        turns = []
+        for arg in self.memory_store.arguments:
+            turns.append({
+                "round": arg.round,
+                "side": arg.side,
+                "role": f"debater_{arg.side}",
+                "thought": arg.thinking,
+                "action": "argument",
+                "result": arg.content,
+                "score": score_for_round(arg.round, arg.side),
+                "timestamp": arg.timestamp.isoformat()
+            })
+
+        # 估算成本
+        texts = [a.content for a in self.memory_store.arguments]
+        for eval_ in evaluations:
+            if eval_.get("commentary"):
+                texts.append(eval_.get("commentary"))
+        if verdict and verdict.get("summary"):
+            texts.append(verdict.get("summary"))
+
+        pricing = MODEL_PRICING.get(self.run_config.get("model"), MODEL_PRICING.get("mock", {}))
+        cost = estimate_cost(texts, pricing)
+
+        return {
+            "topic": self.topic,
+            "created_at": turns[0]["timestamp"] if turns else None,
+            "run_config": self.run_config,
+            "turns": turns,
+            "evaluations": evaluations,
+            "verdict": verdict,
+            "standings": self.memory_store.get_current_standings(),
+            "cost": cost,
+            "message_history": self.message_bus.export_history()
+        }

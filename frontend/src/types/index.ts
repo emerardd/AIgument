@@ -63,7 +63,7 @@ export interface QAResponse {
 
 // ====== 历史记录类型 ======
 
-export type SessionType = 'debate' | 'chat' | 'qa'
+export type SessionType = 'debate' | 'chat' | 'qa' | 'dialectic'
 
 export interface HistoryItem {
     session_id: number
@@ -196,6 +196,71 @@ export interface AgentStreamEvent {
     con_strengths?: string[]
     key_turning_points?: string[]
     // 错误
+    error?: string
+    message?: string
+}
+
+// ====== 辩证法引擎类型 ======
+
+export interface FallacyItem {
+    type: string
+    quote: string
+    explanation: string
+    severity: 'low' | 'medium' | 'high'
+    side: 'thesis' | 'antithesis'
+}
+
+export interface DialecticNode {
+    id: string
+    type?: string
+    position: { x: number; y: number }
+    data: {
+        label: string
+        kind: 'thesis' | 'antithesis' | 'synthesis'
+        round: number
+    }
+}
+
+export interface DialecticEdge {
+    id: string
+    source: string
+    target: string
+    label?: string
+    type?: string
+    animated?: boolean
+}
+
+export interface DialecticTree {
+    nodes: DialecticNode[]
+    edges: DialecticEdge[]
+}
+
+export type DialecticStreamEventType =
+    | 'session'
+    | 'opening'
+    | 'round_start'
+    | 'thesis'
+    | 'antithesis'
+    | 'synthesis'
+    | 'fallacy'
+    | 'tree_update'
+    | 'complete'
+    | 'error'
+
+export interface DialecticStreamEvent {
+    type: DialecticStreamEventType
+    round?: number
+    side?: 'thesis' | 'antithesis' | 'synthesis'
+    content?: string
+    thinking?: Record<string, unknown>
+    items?: FallacyItem[]
+    nodes?: DialecticNode[]
+    edges?: DialecticEdge[]
+    trace?: Record<string, unknown>
+    tree?: DialecticTree
+    session_id?: number
+    topic?: string
+    total_rounds?: number
     error?: string
     message?: string
 }

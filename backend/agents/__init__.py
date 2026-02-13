@@ -11,6 +11,9 @@ AIgument Multi-Agent 框架
 
 from .base_agent import BaseAgent, AgentState
 from .debater_agent import DebaterAgent
+from .dialectic_debater import DialecticThesisAgent, DialecticAntithesisAgent
+from .dialectic_observer import DialecticObserverAgent
+from .dialectic_orchestrator import DialecticOrchestrator
 from .jury_agent import JuryAgent
 from .orchestrator import DebateOrchestrator
 from .protocol import (
@@ -26,6 +29,10 @@ __all__ = [
     "BaseAgent",
     "AgentState",
     "DebaterAgent",
+    "DialecticThesisAgent",
+    "DialecticAntithesisAgent",
+    "DialecticObserverAgent",
+    "DialecticOrchestrator",
     "JuryAgent",
     "DebateOrchestrator",
     "AgentMessage",

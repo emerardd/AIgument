@@ -53,6 +53,43 @@ class MessagePriority(Enum):
 
 
 @dataclass
+class MessagePayload:
+    """标准化消息内容"""
+    role: str = ""
+    thought: Optional[Dict[str, Any]] = None
+    action: str = ""
+    result: Optional[Any] = None
+    score: Optional[Dict[str, Any]] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "role": self.role,
+            "thought": self.thought,
+            "action": self.action,
+            "result": self.result,
+            "score": self.score,
+        }
+
+
+def _normalize_content(content: Union[str, Dict[str, Any], MessagePayload]) -> Dict[str, Any]:
+    """规范化消息内容，确保 role/thought/action/result/score 字段存在"""
+    if isinstance(content, MessagePayload):
+        data = content.to_dict()
+    elif isinstance(content, dict):
+        data = content
+    else:
+        data = {"result": content}
+
+    return {
+        "role": data.get("role", ""),
+        "thought": data.get("thought"),
+        "action": data.get("action", ""),
+        "result": data.get("result"),
+        "score": data.get("score"),
+    }
+
+
+@dataclass
 class AgentMessage:
     """Agent 消息
     
@@ -77,13 +114,14 @@ class AgentMessage:
     timestamp: datetime = field(default_factory=datetime.now)
     
     def to_dict(self) -> Dict[str, Any]:
+        normalized_content = _normalize_content(self.content)
         return {
             "id": self.id,
             "sender": self.sender,
             "receiver": self.receiver,
             "type": self.message_type.value,
             "priority": self.priority.value,
-            "content": self.content,
+            "content": normalized_content,
             "metadata": self.metadata,
             "reply_to": self.reply_to,
             "thread_id": self.thread_id,
@@ -133,7 +171,11 @@ class MessageTemplates:
         return AgentMessage(
             sender=sender,
             message_type=MessageType.ARGUMENT,
-            content=content,
+            content=MessagePayload(
+                role="debater",
+                action="argument",
+                result=content
+            ),
             round=round,
         )
     
@@ -148,7 +190,11 @@ class MessageTemplates:
         return AgentMessage(
             sender=sender,
             message_type=MessageType.REBUTTAL,
-            content=content,
+            content=MessagePayload(
+                role="debater",
+                action="rebuttal",
+                result=content
+            ),
             reply_to=target_message_id,
             round=round,
         )
@@ -166,10 +212,12 @@ class MessageTemplates:
             sender=sender,
             receiver=receiver,
             message_type=MessageType.EVALUATION,
-            content={
-                "scores": scores,
-                "commentary": commentary,
-            },
+            content=MessagePayload(
+                role="jury",
+                action="evaluate",
+                result=commentary,
+                score=scores
+            ),
             round=round,
         )
     
@@ -186,12 +234,16 @@ class MessageTemplates:
             sender=sender,
             message_type=MessageType.VERDICT,
             priority=MessagePriority.HIGH,
-            content={
-                "winner": winner,
-                "pro_score": pro_score,
-                "con_score": con_score,
-                "summary": summary,
-            },
+            content=MessagePayload(
+                role="jury",
+                action="verdict",
+                result=summary,
+                score={
+                    "winner": winner,
+                    "pro_score": pro_score,
+                    "con_score": con_score
+                }
+            ),
         )
     
     @staticmethod
@@ -206,10 +258,11 @@ class MessageTemplates:
             sender=sender,
             receiver=receiver,
             message_type=MessageType.REQUEST,
-            content={
-                "action": action,
-                "params": params or {},
-            },
+            content=MessagePayload(
+                role="system",
+                action=action,
+                result=params or {}
+            ),
         )
     
     @staticmethod
@@ -218,10 +271,14 @@ class MessageTemplates:
         return AgentMessage(
             sender=sender,
             message_type=MessageType.STATUS,
-            content={
-                "status": status,
-                "details": details or {},
-            },
+            content=MessagePayload(
+                role="system",
+                action="status",
+                result={
+                    "status": status,
+                    "details": details or {},
+                }
+            ),
         )
 
 
@@ -380,22 +437,24 @@ class ProtocolValidator:
             return False, "Missing content"
         
         # 检查消息类型特定规则
+        normalized = _normalize_content(message.content)
+        raw_content = message.content if isinstance(message.content, dict) else {}
+
         if message.message_type == MessageType.REBUTTAL:
             if not message.reply_to:
                 return False, "Rebuttal must have reply_to"
         
         if message.message_type == MessageType.EVALUATION:
-            if not isinstance(message.content, dict):
-                return False, "Evaluation content must be dict"
-            if "scores" not in message.content:
-                return False, "Evaluation must have scores"
+            scores = normalized.get("score") or raw_content.get("scores")
+            if scores is None:
+                return False, "Evaluation must have score"
         
         if message.message_type == MessageType.VERDICT:
-            if not isinstance(message.content, dict):
-                return False, "Verdict content must be dict"
+            score = normalized.get("score") or raw_content
             required = {"winner", "pro_score", "con_score"}
-            if not required.issubset(message.content.keys()):
-                return False, f"Verdict missing fields: {required - set(message.content.keys())}"
+            if not isinstance(score, dict) or not required.issubset(score.keys()):
+                missing = required - set(score.keys()) if isinstance(score, dict) else required
+                return False, f"Verdict missing fields: {missing}"
         
         return True, ""
     

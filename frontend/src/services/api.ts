@@ -143,6 +143,62 @@ export const debateAPI = {
     },
 }
 
+// ====== 辩证法引擎 API ======
+
+export const dialecticAPI = {
+    streamDialectic: async (
+        settings: DebateSettings,
+        onEvent: (event: import('@/types').DialecticStreamEvent) => void,
+        onError: (error: Error) => void
+    ) => {
+        try {
+            const params = new URLSearchParams({
+                topic: settings.topic,
+                rounds: settings.rounds.toString(),
+                provider: settings.provider,
+                model: settings.model,
+            })
+
+            const response = await fetch(
+                `${API_BASE_URL}/api/dialectic/stream?${params}`,
+                { method: 'GET' }
+            )
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`)
+            }
+
+            const reader = response.body?.getReader()
+            if (!reader) throw new Error('No response body')
+
+            const decoder = new TextDecoder()
+            let buffer = ''
+
+            while (true) {
+                const { done, value } = await reader.read()
+                if (done) break
+
+                buffer += decoder.decode(value, { stream: true })
+                const lines = buffer.split('\n')
+                buffer = lines.pop() || ''
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6))
+                            onEvent(data)
+                        } catch (e) {
+                            console.error('Failed to parse SSE data:', e)
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            onError(error instanceof Error ? error : new Error('Unknown error'))
+        }
+    },
+}
+
 // ====== 对话 API ======
 
 export const chatAPI = {

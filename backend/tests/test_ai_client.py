@@ -91,3 +91,17 @@ class TestMessageConversion:
         assert len(claude_messages) == 2
         assert claude_messages[0] == {"role": "user", "content": "你好"}
         assert claude_messages[1] == {"role": "assistant", "content": "你好！"}
+
+
+class TestMockReproducibility:
+    """测试 Mock 可复现性"""
+    
+    def test_mock_same_seed_same_output(self):
+        messages = [{"role": "user", "content": "reproducibility check"}]
+        client_a = AIClient(provider="mock", model="mock", seed=123)
+        client_b = AIClient(provider="mock", model="mock", seed=123)
+        
+        output_a = client_a.get_completion(messages, temperature=0.7)
+        output_b = client_b.get_completion(messages, temperature=0.7)
+        
+        assert output_a == output_b

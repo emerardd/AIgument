@@ -48,3 +48,37 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """获取配置单例"""
     return Settings()
+
+
+# 运行配置预设
+RUN_CONFIG_PRESETS = {
+    "basic": {
+        "temperature": 0.6,
+        "seed": 42,
+        "max_rounds": 3,
+        "description": "基础配置，均衡质量与成本"
+    },
+    "quality": {
+        "temperature": 0.85,
+        "seed": 42,
+        "max_rounds": 5,
+        "description": "高质量配置，偏创造性与深度"
+    },
+    "budget": {
+        "temperature": 0.4,
+        "seed": 42,
+        "max_rounds": 2,
+        "description": "低成本配置，快速出结果"
+    }
+}
+
+
+# 模型成本（静态估算，单位 USD / 1K tokens）
+MODEL_PRICING = {
+    "deepseek-chat": {"prompt": 0.0005, "completion": 0.0010},
+    "gpt-4.1": {"prompt": 0.01, "completion": 0.03},
+    "gpt-5": {"prompt": 0.02, "completion": 0.06},
+    "gemini-2.5-pro": {"prompt": 0.01, "completion": 0.03},
+    "claude-opus-4.5": {"prompt": 0.015, "completion": 0.05},
+    "mock": {"prompt": 0.0, "completion": 0.0}
+}

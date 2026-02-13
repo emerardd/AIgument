@@ -4,7 +4,7 @@ import { historyAPI } from '@/services/api'
 
 interface SessionDetail {
     session_id: number
-    type: 'debate' | 'chat' | 'qa'
+    type: 'debate' | 'dialectic' | 'chat' | 'qa'
     messages: Array<{
         role: string
         content: string
@@ -19,12 +19,12 @@ interface HistoryState {
     isLoading: boolean
     isDetailLoading: boolean
     error: string | null
-    filter: 'all' | 'debate' | 'chat' | 'qa'
+    filter: 'all' | 'debate' | 'dialectic' | 'chat' | 'qa'
 
     fetchHistory: () => Promise<void>
     fetchSessionDetail: (id: number) => Promise<void>
     deleteSession: (id: number) => Promise<void>
-    setFilter: (filter: 'all' | 'debate' | 'chat' | 'qa') => void
+    setFilter: (filter: 'all' | 'debate' | 'dialectic' | 'chat' | 'qa') => void
     clearSelectedSession: () => void
 }
 
