@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button'
 import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer'
 import { useHistoryStore } from '@/stores/historyStore'
 import { useChatStore } from '@/stores/chatStore'
-import { useToast } from '@/components/ui/Toast'
+import { useToast } from '@/hooks/useToast'
+import { downloadSessionExport } from '@/utils/download'
 import { X, Loader2, Download, Calendar, MessageCircle } from 'lucide-react'
 import type { ChatMessage } from '@/types'
 
@@ -34,18 +35,7 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
 
     const handleExport = async (format: 'md' | 'json') => {
         try {
-            const response = await fetch(
-                `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/history/${sessionId}/export?format=${format === 'md' ? 'markdown' : 'json'}`
-            )
-            const blob = await response.blob()
-            const url = window.URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = `session_${sessionId}.${format}`
-            document.body.appendChild(a)
-            a.click()
-            document.body.removeChild(a)
-            window.URL.revokeObjectURL(url)
+            await downloadSessionExport(sessionId, format)
             toast.success(`导出成功: session_${sessionId}.${format}`)
         } catch {
             toast.error('导出失败，请重试')

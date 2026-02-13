@@ -4,6 +4,8 @@
 import os
 from config import get_settings
 from .logger import get_logger, log_request, log_ai_call, log_debate_event
+from .prompting import resolve_prompt
+from .sse import sse_event, sse_response
 
 
 def get_api_key(provider: str = "deepseek") -> str:
@@ -25,5 +27,8 @@ __all__ = [
     "log_request", 
     "log_ai_call",
     "log_debate_event",
-    "get_api_key"
+    "get_api_key",
+    "resolve_prompt",
+    "sse_event",
+    "sse_response",
 ]

@@ -3,10 +3,8 @@ Multi-Agent 辩论 API
 
 使用 DebateOrchestrator 协调多个 Agent 的高级辩论接口
 """
-import json
 from typing import Optional, Literal
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session as DBSession
 
 from database import get_db
@@ -14,7 +12,7 @@ from models.session import Session, Message
 from schemas.debate import DebateRequest
 from services.ai_client import AIClient
 from agents import DebateOrchestrator
-from utils import get_api_key
+from utils import get_api_key, sse_event, sse_response
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -76,7 +74,7 @@ async def agent_stream_debate(
             db.refresh(session)
             
             logger.info(f"创建 Multi-Agent 辩论会话: {session.id}")
-            yield f"data: {json.dumps({'type': 'session', 'session_id': session.id})}\n\n"
+            yield sse_event({"type": "session", "session_id": session.id})
             
             # 创建 AI 客户端和协调器
             ai_client = AIClient(provider=provider, model=model, api_key=api_key, seed=seed)
@@ -108,7 +106,7 @@ async def agent_stream_debate(
                 if event_type not in ("argument",):
                     logger.debug(f"Event: {event_type}")
                 
-                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+                yield sse_event(event, ensure_ascii=False)
                 
                 # 只收集完整论点
                 if event_type == "argument_complete":
@@ -150,17 +148,9 @@ async def agent_stream_debate(
             import traceback
             error_detail = traceback.format_exc()
             logger.error(f"Agent 辩论失败: {error_detail}")
-            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
-    
-    return StreamingResponse(
-        generate(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"
-        }
-    )
+            yield sse_event({"type": "error", "error": str(e)})
+
+    return sse_response(generate())
 
 
 @router.post("/debate/agent")

@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Brain, Lightbulb, BookOpen, HelpCircle, Send, RefreshCw, ChevronRight, Sparkles } from 'lucide-react'
+import { API_BASE_URL } from '@/config/env'
+import { streamSSE } from '@/utils/sse'
 
 interface QAMode {
     id: string
@@ -8,7 +10,12 @@ interface QAMode {
     icon: string
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+interface SocraticQAStreamEvent {
+    type: 'session' | 'content' | 'complete' | 'error'
+    session_id?: number
+    content?: string
+    error?: string
+}
 
 const MODE_ICONS: Record<string, React.ReactNode> = {
     socratic: <HelpCircle className="w-5 h-5" />,
@@ -23,13 +30,12 @@ export function SocraticQAView() {
     const [response, setResponse] = useState('')
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [_sessionId, setSessionId] = useState<number | null>(null)
     const [history, setHistory] = useState<Array<{ role: string; content: string }>>([])
     const responseRef = useRef<HTMLDivElement>(null)
 
     // 获取可用模式
     useEffect(() => {
-        fetch(`${API_URL}/api/qa/modes`)
+        fetch(`${API_BASE_URL}/api/qa/modes`)
             .then(res => res.json())
             .then(data => setModes(data.modes || []))
             .catch(err => console.error('Failed to fetch modes:', err))
@@ -51,47 +57,27 @@ export function SocraticQAView() {
         setError(null)
 
         try {
-            const historyParam = encodeURIComponent(JSON.stringify(history))
-            const url = `${API_URL}/api/qa/socratic-stream?question=${encodeURIComponent(question)}&mode=${selectedMode}&history=${historyParam}`
-
-            const res = await fetch(url)
-            const reader = res.body?.getReader()
-            const decoder = new TextDecoder()
-
-            if (!reader) {
-                throw new Error('Failed to get reader')
-            }
-
+            const historyParam = JSON.stringify(history)
             let fullResponse = ''
+            const params = new URLSearchParams({
+                question,
+                mode: selectedMode,
+                history: historyParam,
+            })
 
-            while (true) {
-                const { done, value } = await reader.read()
-                if (done) break
-
-                const text = decoder.decode(value)
-                const lines = text.split('\n')
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.slice(6))
-
-                            if (data.type === 'session') {
-                                setSessionId(data.session_id)
-                            } else if (data.type === 'content') {
-                                setResponse(data.content)
-                                fullResponse = data.content
-                            } else if (data.type === 'complete') {
-                                fullResponse = data.content
-                            } else if (data.type === 'error') {
-                                setError(data.error)
-                            }
-                        } catch (e) {
-                            // Skip invalid JSON
-                        }
+            await streamSSE<SocraticQAStreamEvent>({
+                url: `${API_BASE_URL}/api/qa/socratic-stream?${params.toString()}`,
+                onEvent: (data) => {
+                    if (data.type === 'content' && data.content !== undefined) {
+                        setResponse(data.content)
+                        fullResponse = data.content
+                    } else if (data.type === 'complete' && data.content !== undefined) {
+                        fullResponse = data.content
+                    } else if (data.type === 'error') {
+                        setError(data.error || 'Unknown error')
                     }
-                }
-            }
+                },
+            })
 
             // 更新历史
             if (fullResponse) {
@@ -119,7 +105,6 @@ export function SocraticQAView() {
     const clearHistory = () => {
         setHistory([])
         setResponse('')
-        setSessionId(null)
         setQuestion('')
     }
 
@@ -227,7 +212,7 @@ export function SocraticQAView() {
 
                         <div className="p-6">
                             <div className="prose prose-sm max-w-none dark:prose-invert">
-                                <ResponseRenderer content={response} mode={selectedMode} />
+                                <ResponseRenderer content={response} />
                             </div>
                         </div>
 
@@ -275,7 +260,7 @@ export function SocraticQAView() {
 }
 
 // 回复内容渲染器
-function ResponseRenderer({ content, mode: _mode }: { content: string; mode: string }) {
+function ResponseRenderer({ content }: { content: string }) {
     // 简单渲染，将 Markdown 风格转为 HTML
     const formatContent = (text: string) => {
         return text
@@ -293,7 +278,7 @@ function ResponseRenderer({ content, mode: _mode }: { content: string; mode: str
                 }
 
                 // 处理引导问题（以数字或问号开头）
-                if (/^\d+[\.\)]/.test(line) || line.includes('？') || line.includes('?')) {
+                if (/^\d+[.)]/.test(line) || line.includes('？') || line.includes('?')) {
                     return (
                         <div key={idx} className="flex items-start gap-2 my-2 p-3 rounded-lg bg-green-500/5 border-l-2 border-green-500">
                             <ChevronRight className="w-4 h-4 mt-0.5 text-green-500 flex-shrink-0" />

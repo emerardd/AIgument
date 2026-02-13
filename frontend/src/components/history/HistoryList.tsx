@@ -2,8 +2,9 @@ import { useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useHistoryStore } from '@/stores/historyStore'
-import { useToast } from '@/components/ui/Toast'
+import { useToast } from '@/hooks/useToast'
 import { HistoryListSkeleton } from '@/components/ui/Skeleton'
+import { downloadSessionExport } from '@/utils/download'
 import { Trash2, Eye, Download, Calendar, MessageSquare } from 'lucide-react'
 
 interface HistoryListProps {
@@ -21,18 +22,7 @@ export function HistoryList({ onViewDetail }: HistoryListProps) {
 
     const handleExport = async (id: number, format: 'md' | 'json') => {
         try {
-            const response = await fetch(
-                `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/history/${id}/export?format=${format === 'md' ? 'markdown' : 'json'}`
-            )
-            const blob = await response.blob()
-            const url = window.URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = `session_${id}.${format}`
-            document.body.appendChild(a)
-            a.click()
-            document.body.removeChild(a)
-            window.URL.revokeObjectURL(url)
+            await downloadSessionExport(id, format)
             toast.success(`导出成功: session_${id}.${format}`)
         } catch {
             toast.error('导出失败，请重试')

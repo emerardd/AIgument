@@ -1,13 +1,15 @@
 import axios from 'axios'
 import type {
+    AgentStreamEvent,
+    DialecticStreamEvent,
     DebateSettings,
     DebateSession,
     HistoryItem,
     SessionType,
     StreamEvent,
 } from '@/types'
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+import { API_BASE_URL } from '@/config/env'
+import { streamSSE } from '@/utils/sse'
 
 const api = axios.create({
     baseURL: API_BASE_URL,
@@ -15,6 +17,31 @@ const api = axios.create({
         'Content-Type': 'application/json',
     },
 })
+
+function buildStreamParams(settings: DebateSettings): URLSearchParams {
+    return new URLSearchParams({
+        topic: settings.topic,
+        rounds: settings.rounds.toString(),
+        provider: settings.provider,
+        model: settings.model,
+    })
+}
+
+async function streamWithParams<TEvent>(
+    path: string,
+    params: URLSearchParams,
+    onEvent: (event: TEvent) => void,
+    onError: (error: Error) => void
+): Promise<void> {
+    try {
+        await streamSSE<TEvent>({
+            url: `${API_BASE_URL}${path}?${params.toString()}`,
+            onEvent,
+        })
+    } catch (error) {
+        onError(error instanceof Error ? error : new Error('Unknown error'))
+    }
+}
 
 // ====== 辩论 API ======
 
@@ -27,51 +54,12 @@ export const debateAPI = {
         onEvent: (event: StreamEvent) => void,
         onError: (error: Error) => void
     ) => {
-        try {
-            const params = new URLSearchParams({
-                topic: settings.topic,
-                rounds: settings.rounds.toString(),
-                provider: settings.provider,
-                model: settings.model,
-            })
-
-            const response = await fetch(
-                `${API_BASE_URL}/api/debate/stream?${params}`,
-                { method: 'GET' }
-            )
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`)
-            }
-
-            const reader = response.body?.getReader()
-            if (!reader) throw new Error('No response body')
-
-            const decoder = new TextDecoder()
-            let buffer = ''
-
-            while (true) {
-                const { done, value } = await reader.read()
-                if (done) break
-
-                buffer += decoder.decode(value, { stream: true })
-                const lines = buffer.split('\n')
-                buffer = lines.pop() || ''
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.slice(6))
-                            onEvent(data)
-                        } catch (e) {
-                            console.error('Failed to parse SSE data:', e)
-                        }
-                    }
-                }
-            }
-        } catch (error) {
-            onError(error instanceof Error ? error : new Error('Unknown error'))
-        }
+        await streamWithParams<StreamEvent>(
+            '/api/debate/stream',
+            buildStreamParams(settings),
+            onEvent,
+            onError
+        )
     },
 
     /**
@@ -92,54 +80,15 @@ export const debateAPI = {
      */
     streamAgentDebate: async (
         settings: DebateSettings,
-        onEvent: (event: import('@/types').AgentStreamEvent) => void,
+        onEvent: (event: AgentStreamEvent) => void,
         onError: (error: Error) => void
     ) => {
-        try {
-            const params = new URLSearchParams({
-                topic: settings.topic,
-                rounds: settings.rounds.toString(),
-                provider: settings.provider,
-                model: settings.model,
-            })
-
-            const response = await fetch(
-                `${API_BASE_URL}/api/debate/agent-stream?${params}`,
-                { method: 'GET' }
-            )
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`)
-            }
-
-            const reader = response.body?.getReader()
-            if (!reader) throw new Error('No response body')
-
-            const decoder = new TextDecoder()
-            let buffer = ''
-
-            while (true) {
-                const { done, value } = await reader.read()
-                if (done) break
-
-                buffer += decoder.decode(value, { stream: true })
-                const lines = buffer.split('\n')
-                buffer = lines.pop() || ''
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.slice(6))
-                            onEvent(data)
-                        } catch (e) {
-                            console.error('Failed to parse SSE data:', e)
-                        }
-                    }
-                }
-            }
-        } catch (error) {
-            onError(error instanceof Error ? error : new Error('Unknown error'))
-        }
+        await streamWithParams<AgentStreamEvent>(
+            '/api/debate/agent-stream',
+            buildStreamParams(settings),
+            onEvent,
+            onError
+        )
     },
 }
 
@@ -148,54 +97,15 @@ export const debateAPI = {
 export const dialecticAPI = {
     streamDialectic: async (
         settings: DebateSettings,
-        onEvent: (event: import('@/types').DialecticStreamEvent) => void,
+        onEvent: (event: DialecticStreamEvent) => void,
         onError: (error: Error) => void
     ) => {
-        try {
-            const params = new URLSearchParams({
-                topic: settings.topic,
-                rounds: settings.rounds.toString(),
-                provider: settings.provider,
-                model: settings.model,
-            })
-
-            const response = await fetch(
-                `${API_BASE_URL}/api/dialectic/stream?${params}`,
-                { method: 'GET' }
-            )
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`)
-            }
-
-            const reader = response.body?.getReader()
-            if (!reader) throw new Error('No response body')
-
-            const decoder = new TextDecoder()
-            let buffer = ''
-
-            while (true) {
-                const { done, value } = await reader.read()
-                if (done) break
-
-                buffer += decoder.decode(value, { stream: true })
-                const lines = buffer.split('\n')
-                buffer = lines.pop() || ''
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.slice(6))
-                            onEvent(data)
-                        } catch (e) {
-                            console.error('Failed to parse SSE data:', e)
-                        }
-                    }
-                }
-            }
-        } catch (error) {
-            onError(error instanceof Error ? error : new Error('Unknown error'))
-        }
+        await streamWithParams<DialecticStreamEvent>(
+            '/api/dialectic/stream',
+            buildStreamParams(settings),
+            onEvent,
+            onError
+        )
     },
 }
 
@@ -220,43 +130,16 @@ export const chatAPI = {
         provider?: string,
         model?: string
     ) => {
-        try {
-            const params = new URLSearchParams({ message })
-            if (provider) params.set('provider', provider)
-            if (model) params.set('model', model)
+        const params = new URLSearchParams({ message })
+        if (provider) params.set('provider', provider)
+        if (model) params.set('model', model)
 
-            const response = await fetch(`${API_BASE_URL}/api/chat/stream?${params}`, {
-                method: 'GET',
-            })
-
-            const reader = response.body?.getReader()
-            if (!reader) throw new Error('No response body')
-
-            const decoder = new TextDecoder()
-            let buffer = ''
-
-            while (true) {
-                const { done, value } = await reader.read()
-                if (done) break
-
-                buffer += decoder.decode(value, { stream: true })
-                const lines = buffer.split('\n')
-                buffer = lines.pop() || ''
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.slice(6))
-                            onEvent(data)
-                        } catch (e) {
-                            console.error('Failed to parse SSE data:', e)
-                        }
-                    }
-                }
-            }
-        } catch (error) {
-            onError(error instanceof Error ? error : new Error('Unknown error'))
-        }
+        await streamWithParams<{ type: string; content?: string; role?: string; session_id?: number }>(
+            '/api/chat/stream',
+            params,
+            onEvent,
+            onError
+        )
     },
 }
 
@@ -282,44 +165,17 @@ export const qaAPI = {
         provider?: string,
         model?: string
     ) => {
-        try {
-            const params = new URLSearchParams({ question })
-            if (style) params.set('style', style)
-            if (provider) params.set('provider', provider)
-            if (model) params.set('model', model)
+        const params = new URLSearchParams({ question })
+        if (style) params.set('style', style)
+        if (provider) params.set('provider', provider)
+        if (model) params.set('model', model)
 
-            const response = await fetch(`${API_BASE_URL}/api/qa/stream?${params}`, {
-                method: 'GET',
-            })
-
-            const reader = response.body?.getReader()
-            if (!reader) throw new Error('No response body')
-
-            const decoder = new TextDecoder()
-            let buffer = ''
-
-            while (true) {
-                const { done, value } = await reader.read()
-                if (done) break
-
-                buffer += decoder.decode(value, { stream: true })
-                const lines = buffer.split('\n')
-                buffer = lines.pop() || ''
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.slice(6))
-                            onEvent(data)
-                        } catch (e) {
-                            console.error('Failed to parse SSE data:', e)
-                        }
-                    }
-                }
-            }
-        } catch (error) {
-            onError(error instanceof Error ? error : new Error('Unknown error'))
-        }
+        await streamWithParams<{ type: string; content?: string; role?: string; session_id?: number }>(
+            '/api/qa/stream',
+            params,
+            onEvent,
+            onError
+        )
     },
 }
 

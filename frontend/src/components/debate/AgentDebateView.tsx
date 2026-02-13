@@ -30,7 +30,6 @@ export function AgentDebateView() {
         verdict,
         sessionId,
         currentRound,
-        totalRounds: _totalRounds,
         showThinking,
         showScores,
         addMessage,
@@ -142,7 +141,7 @@ export function AgentDebateView() {
                         }
                         break
 
-                    case 'evaluation':
+                    case 'evaluation': {
                         const evaluation: RoundEvaluation = {
                             round: event.round || currentRound,
                             pro_score: event.pro_score || { logic: 5, evidence: 5, rhetoric: 5, rebuttal: 5 },
@@ -155,6 +154,7 @@ export function AgentDebateView() {
                         addEvaluation(evaluation)
                         scrollToBottom()
                         break
+                    }
 
                     case 'standings':
                         if (event.standings) {

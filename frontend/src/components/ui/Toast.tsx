@@ -55,9 +55,3 @@ export function ToastContainer() {
         </div>
     )
 }
-
-// 便捷的 hook，供组件使用
-export function useToast() {
-    const { success, error, info, warning } = useToastStore()
-    return { success, error, info, warning }
-}

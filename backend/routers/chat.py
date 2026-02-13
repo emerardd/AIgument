@@ -7,28 +7,38 @@
 """
 import json
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session as DBSession
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database import get_db
 from models.session import Session, Message
 from schemas.chat import ChatRequest, ChatMessage
 from services.ai_client import AIClient
 from services.dual_chat import create_dual_chat, ROLE_TEMPLATES
-from utils import get_api_key
-from prompt_vcs import p
+from utils import get_api_key, resolve_prompt, sse_event, sse_response
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
 def get_chat_system_prompt() -> str:
     """获取对话系统提示词（使用 prompt-vcs 管理）"""
-    return p(
+    return resolve_prompt(
         "chat_system",
         "你是一个有帮助的AI助手。请用中文回答用户的问题，保持友好和专业。"
     )
+
+
+def build_chat_messages(user_message: str, history: list[dict] | list[ChatMessage]) -> list[dict]:
+    """Build a standard message list for chat completions."""
+    messages = [{"role": "system", "content": get_chat_system_prompt()}]
+    for msg in history:
+        if isinstance(msg, dict):
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+        else:
+            role = msg.role
+            content = msg.content
+        messages.append({"role": role, "content": content})
+    messages.append({"role": "user", "content": user_message})
+    return messages
 
 
 @router.post("/chat")
@@ -41,11 +51,7 @@ async def chat(request: ChatRequest, db: DBSession = Depends(get_db)):
         api_key = get_api_key(request.provider)
         client = AIClient(provider=request.provider, model=request.model, api_key=api_key)
         
-        # 构建消息
-        messages = [{"role": "system", "content": get_chat_system_prompt()}]
-        for msg in request.history:
-            messages.append({"role": msg.role, "content": msg.content})
-        messages.append({"role": "user", "content": request.message})
+        messages = build_chat_messages(request.message, request.history)
         
         # 获取回复
         response_content = client.get_completion(messages)
@@ -95,11 +101,7 @@ def stream_chat(
             # 解析历史消息
             history_list = json.loads(history) if history else []
             
-            # 构建消息
-            messages = [{"role": "system", "content": get_chat_system_prompt()}]
-            for msg in history_list:
-                messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
-            messages.append({"role": "user", "content": message})
+            messages = build_chat_messages(message, history_list)
             
             # 创建会话
             session = Session(
@@ -112,7 +114,7 @@ def stream_chat(
             db.refresh(session)
             
             # 发送会话ID
-            yield f"data: {json.dumps({'type': 'session', 'session_id': session.id})}\n\n"
+            yield sse_event({"type": "session", "session_id": session.id})
             
             # 保存用户消息
             user_msg = Message(session_id=session.id, role="user", content=message)
@@ -123,28 +125,20 @@ def stream_chat(
             full_response = ""
             for chunk in client.chat_stream(messages):
                 full_response += chunk
-                yield f"data: {json.dumps({'type': 'content', 'content': full_response})}\n\n"
+                yield sse_event({"type": "content", "content": full_response})
             
             # 保存助手消息
             assistant_msg = Message(session_id=session.id, role="assistant", content=full_response)
             db.add(assistant_msg)
             db.commit()
             
-            yield f"data: {json.dumps({'type': 'complete'})}\n\n"
+            yield sse_event({"type": "complete"})
             
         except Exception as e:
             db.rollback()
-            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
-    
-    return StreamingResponse(
-        generate(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"
-        }
-    )
+            yield sse_event({"type": "error", "error": str(e)})
+
+    return sse_response(generate())
 
 
 # ============================================================
@@ -228,11 +222,11 @@ def stream_dual_chat(
             db.commit()
             db.refresh(session)
             
-            yield f"data: {json.dumps({'type': 'session', 'session_id': session.id})}\n\n"
+            yield sse_event({"type": "session", "session_id": session.id})
             
             # 运行对话
             for event in dual_chat.run_conversation(turns=turns):
-                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+                yield sse_event(event, ensure_ascii=False)
                 
                 # 保存消息到数据库
                 if event.get("type") == "message_complete":
@@ -254,15 +248,7 @@ def stream_dual_chat(
             db.rollback()
             import traceback
             print(f"[Dual Chat Error] {traceback.format_exc()}")
-            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
-    
-    return StreamingResponse(
-        generate(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"
-        }
-    )
+            yield sse_event({"type": "error", "error": str(e)})
+
+    return sse_response(generate())
 

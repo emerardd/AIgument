@@ -49,7 +49,7 @@ export function DebateView() {
                 (event: StreamEvent) => {
                     if (event.type === 'content' && event.side && event.round !== undefined) {
                         const key = `${event.round}-${event.side}`
-                        let msgIndex = messageMap.get(key)
+                        const msgIndex = messageMap.get(key)
 
                         if (msgIndex === undefined) {
                             const currentLength = useDebateStore.getState().messages.length

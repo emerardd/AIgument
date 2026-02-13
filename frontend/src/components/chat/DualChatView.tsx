@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Users, Play, MessageCircle, Sparkles, RefreshCw } from 'lucide-react'
+import { API_BASE_URL } from '@/config/env'
+import { streamSSE } from '@/utils/sse'
 
 interface Role {
     id: string
@@ -17,7 +19,14 @@ interface Message {
     isComplete: boolean
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+interface DualChatStreamEvent {
+    type: 'start' | 'message' | 'message_complete' | 'complete' | 'error'
+    speaker?: string
+    role_id?: 'a' | 'b'
+    content?: string
+    turn?: number
+    error?: string
+}
 
 export function DualChatView() {
     const [topic, setTopic] = useState('')
@@ -35,7 +44,7 @@ export function DualChatView() {
     // 获取可用角色
     useEffect(() => {
         setRolesLoading(true)
-        fetch(`${API_URL}/api/chat/roles`)
+        fetch(`${API_BASE_URL}/api/chat/roles`)
             .then(res => res.json())
             .then(data => {
                 setRoles(data.roles || [])
@@ -63,34 +72,17 @@ export function DualChatView() {
         setError(null)
 
         try {
-            const url = `${API_URL}/api/chat/dual-stream?topic=${encodeURIComponent(topic)}&role_a=${encodeURIComponent(roleA)}&role_b=${encodeURIComponent(roleB)}&turns=${turns}`
+            const params = new URLSearchParams({
+                topic,
+                role_a: roleA,
+                role_b: roleB,
+                turns: turns.toString(),
+            })
 
-            const response = await fetch(url)
-            const reader = response.body?.getReader()
-            const decoder = new TextDecoder()
-
-            if (!reader) {
-                throw new Error('Failed to get reader')
-            }
-
-            while (true) {
-                const { done, value } = await reader.read()
-                if (done) break
-
-                const text = decoder.decode(value)
-                const lines = text.split('\n')
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.slice(6))
-                            handleEvent(data)
-                        } catch (e) {
-                            // Skip invalid JSON
-                        }
-                    }
-                }
-            }
+            await streamSSE<DualChatStreamEvent>({
+                url: `${API_BASE_URL}/api/chat/dual-stream?${params.toString()}`,
+                onEvent: handleEvent,
+            })
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Unknown error')
         } finally {
@@ -99,49 +91,65 @@ export function DualChatView() {
         }
     }
 
-    const handleEvent = (event: any) => {
+    const handleEvent = (event: DualChatStreamEvent) => {
         switch (event.type) {
             case 'start':
                 // 对话开始
                 break
 
             case 'message':
-                setCurrentSpeaker(event.speaker)
+            {
+                if (!event.speaker || !event.role_id || event.turn === undefined || event.content === undefined) {
+                    break
+                }
+                const { speaker, role_id, turn, content } = event
+                setCurrentSpeaker(speaker)
                 setMessages(prev => {
-                    const existing = prev.find(m => m.turn === event.turn && m.role_id === event.role_id)
+                    const existing = prev.find(m => m.turn === turn && m.role_id === role_id)
                     if (existing) {
                         return prev.map(m =>
-                            m.turn === event.turn && m.role_id === event.role_id
-                                ? { ...m, content: event.content }
+                            m.turn === turn && m.role_id === role_id
+                                ? { ...m, content }
                                 : m
                         )
                     }
                     return [...prev, {
-                        speaker: event.speaker,
-                        role_id: event.role_id,
-                        content: event.content,
-                        turn: event.turn,
+                        speaker,
+                        role_id,
+                        content,
+                        turn,
                         isComplete: false
                     }]
                 })
                 break
+            }
 
             case 'message_complete':
+            {
+                if (!event.role_id || event.turn === undefined || event.content === undefined) {
+                    break
+                }
+                const {
+                    role_id: completeRoleId,
+                    turn: completeTurn,
+                    content: completeContent,
+                } = event
                 setMessages(prev =>
                     prev.map(m =>
-                        m.turn === event.turn && m.role_id === event.role_id
-                            ? { ...m, content: event.content, isComplete: true }
+                        m.turn === completeTurn && m.role_id === completeRoleId
+                            ? { ...m, content: completeContent, isComplete: true }
                             : m
                     )
                 )
                 break
+            }
 
             case 'complete':
                 setCurrentSpeaker('')
                 break
 
             case 'error':
-                setError(event.error)
+                setError(event.error || 'Unknown error')
                 break
         }
     }
@@ -290,13 +298,13 @@ export function DualChatView() {
                         </div>
 
                         <div className="space-y-4">
-                            {messages.map((msg, idx) => {
+                            {messages.map((msg) => {
                                 const isRoleA = msg.role_id === 'a'
                                 const roleInfo = getRoleInfo(msg.role_id)
 
                                 return (
                                     <div
-                                        key={idx}
+                                        key={`${msg.turn}-${msg.role_id}`}
                                         className={`flex ${isRoleA ? 'justify-start' : 'justify-end'}`}
                                     >
                                         <div

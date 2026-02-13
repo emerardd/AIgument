@@ -3,17 +3,15 @@
 
 提供流式辩证法辩论与观点进化树查询。
 """
-import json
 from typing import Optional, Literal
 from fastapi import APIRouter, Depends
-from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session as DBSession
 
 from database import get_db
 from models.session import Session, Message
 from services.ai_client import AIClient
 from agents import DialecticOrchestrator
-from utils import get_api_key
+from utils import get_api_key, sse_event, sse_response
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -61,7 +59,7 @@ async def stream_dialectic(
             db.refresh(session)
 
             logger.info(f"创建辩证法会话: {session.id}")
-            yield f"data: {json.dumps({'type': 'session', 'session_id': session.id})}\n\n"
+            yield sse_event({"type": "session", "session_id": session.id})
 
             ai_client = AIClient(provider=provider, model=model, api_key=api_key, seed=seed)
             orchestrator = DialecticOrchestrator(ai_client=ai_client)
@@ -79,7 +77,7 @@ async def stream_dialectic(
 
             async for event in orchestrator.run_stream():
                 event_type = event.get("type", "")
-                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+                yield sse_event(event, ensure_ascii=False)
 
                 if event_type in ("thesis", "antithesis", "synthesis"):
                     role_map = {
@@ -124,17 +122,9 @@ async def stream_dialectic(
         except Exception as e:
             db.rollback()
             logger.error(f"辩证法流式失败: {e}")
-            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+            yield sse_event({"type": "error", "error": str(e)})
 
-    return StreamingResponse(
-        generate(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"
-        }
-    )
+    return sse_response(generate())
 
 
 @router.get("/dialectic/{session_id}/tree")

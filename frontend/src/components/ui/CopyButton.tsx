@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Check, Copy } from 'lucide-react'
-import { useToast } from './Toast'
+import { useToast } from '@/hooks/useToast'
 
 interface CopyButtonProps {
     text: string

@@ -8,19 +8,14 @@
 """
 import json
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session as DBSession
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database import get_db
 from models.session import Session, Message
 from schemas.qa import QARequest
 from services.ai_client import AIClient
-from services.socratic_qa import create_socratic_qa, SocraticQAService
-from utils import get_api_key
-from prompt_vcs import p
+from services.socratic_qa import create_socratic_qa
+from utils import get_api_key, resolve_prompt, sse_event, sse_response
 
 router = APIRouter(prefix="/api", tags=["qa"])
 
@@ -34,7 +29,16 @@ def get_style_prompt(style: str) -> str:
         "concise": ("qa_concise", "你是一个高效的助手，请用简洁明了的方式回答问题。直接给出核心答案，不要太多铺垫。")
     }
     prompt_id, default = style_map.get(style, style_map["professional"])
-    return p(prompt_id, default)
+    return resolve_prompt(prompt_id, default)
+
+
+def build_qa_messages(question: str, style: str, history: list[dict]) -> list[dict]:
+    """Build a standard message list for QA completions."""
+    messages = [{"role": "system", "content": get_style_prompt(style)}]
+    for msg in history:
+        messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
+    messages.append({"role": "user", "content": question})
+    return messages
 
 
 @router.post("/qa")
@@ -47,12 +51,11 @@ async def qa(request: QARequest, db: DBSession = Depends(get_db)):
         api_key = get_api_key(request.provider)
         client = AIClient(provider=request.provider, model=request.model, api_key=api_key)
         
-        # 构建消息
-        system_prompt = get_style_prompt(request.style)
-        messages = [{"role": "system", "content": system_prompt}]
-        for msg in request.history:
-            messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
-        messages.append({"role": "user", "content": request.question})
+        messages = build_qa_messages(
+            question=request.question,
+            style=request.style,
+            history=request.history,
+        )
         
         # 获取回复
         response_content = client.get_completion(messages)
@@ -104,12 +107,7 @@ def stream_qa(
             # 解析历史消息
             history_list = json.loads(history) if history else []
             
-            # 构建消息
-            system_prompt = get_style_prompt(style)
-            messages = [{"role": "system", "content": system_prompt}]
-            for msg in history_list:
-                messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
-            messages.append({"role": "user", "content": question})
+            messages = build_qa_messages(question=question, style=style, history=history_list)
             
             # 创建会话
             session = Session(
@@ -122,7 +120,7 @@ def stream_qa(
             db.refresh(session)
             
             # 发送会话ID
-            yield f"data: {json.dumps({'type': 'session', 'session_id': session.id})}\n\n"
+            yield sse_event({"type": "session", "session_id": session.id})
             
             # 保存用户消息
             user_msg = Message(session_id=session.id, role="user", content=question)
@@ -133,28 +131,20 @@ def stream_qa(
             full_response = ""
             for chunk in client.chat_stream(messages):
                 full_response += chunk
-                yield f"data: {json.dumps({'type': 'content', 'content': full_response})}\n\n"
+                yield sse_event({"type": "content", "content": full_response})
             
             # 保存助手消息
             assistant_msg = Message(session_id=session.id, role="assistant", content=full_response)
             db.add(assistant_msg)
             db.commit()
             
-            yield f"data: {json.dumps({'type': 'complete'})}\n\n"
+            yield sse_event({"type": "complete"})
             
         except Exception as e:
             db.rollback()
-            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
-    
-    return StreamingResponse(
-        generate(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"
-        }
-    )
+            yield sse_event({"type": "error", "error": str(e)})
+
+    return sse_response(generate())
 
 
 # ============================================================
@@ -296,7 +286,7 @@ def stream_socratic_qa(
             db.commit()
             db.refresh(session)
             
-            yield f"data: {json.dumps({'type': 'session', 'session_id': session.id, 'mode': mode})}\n\n"
+            yield sse_event({"type": "session", "session_id": session.id, "mode": mode})
             
             # 保存用户消息
             user_msg = Message(session_id=session.id, role="user", content=question)
@@ -306,7 +296,7 @@ def stream_socratic_qa(
             # 流式生成
             full_response = ""
             for event in qa_service.stream_ask(question):
-                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+                yield sse_event(event, ensure_ascii=False)
                 if event.get("type") == "complete":
                     full_response = event.get("content", "")
             
@@ -325,17 +315,9 @@ def stream_socratic_qa(
             db.rollback()
             import traceback
             print(f"[Socratic QA Error] {traceback.format_exc()}")
-            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
-    
-    return StreamingResponse(
-        generate(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"
-        }
-    )
+            yield sse_event({"type": "error", "error": str(e)})
+
+    return sse_response(generate())
 
 
 @router.post("/qa/follow-up")

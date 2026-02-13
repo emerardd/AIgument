@@ -3,17 +3,15 @@
 
 非 Multi-Agent 的简单辩论接口
 """
-import json
 from typing import Optional, Literal
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session as DBSession
 
 from database import get_db
 from models.session import Session, Message
 from schemas.debate import DebateRequest
 from services.debater import Debater
-from utils import get_api_key
+from utils import get_api_key, sse_event, sse_response
 from utils.logger import get_logger
 from config import RUN_CONFIG_PRESETS
 
@@ -174,7 +172,7 @@ def stream_debate(
             db.refresh(session)
             
             # 发送会话ID
-            yield f"data: {json.dumps({'type': 'session', 'session_id': session.id})}\n\n"
+            yield sse_event({"type": "session", "session_id": session.id})
             
             # 创建辩论者
             pro_debater = create_debater(
@@ -194,7 +192,12 @@ def stream_debate(
                 
                 for chunk in pro_debater.stream_response(pro_input):
                     pro_full += chunk
-                    yield f"data: {json.dumps({'type': 'content', 'round': round_num, 'side': '正方', 'content': pro_full})}\n\n"
+                    yield sse_event({
+                        "type": "content",
+                        "round": round_num,
+                        "side": "正方",
+                        "content": pro_full,
+                    })
                 
                 # 保存正方消息
                 pro_msg = Message(
@@ -210,7 +213,12 @@ def stream_debate(
                 con_full = ""
                 for chunk in con_debater.stream_response(pro_full):
                     con_full += chunk
-                    yield f"data: {json.dumps({'type': 'content', 'round': round_num, 'side': '反方', 'content': con_full})}\n\n"
+                    yield sse_event({
+                        "type": "content",
+                        "round": round_num,
+                        "side": "反方",
+                        "content": con_full,
+                    })
                 
                 # 保存反方消息
                 con_msg = Message(
@@ -224,19 +232,11 @@ def stream_debate(
                 
                 last_response = con_full
             
-            yield f"data: {json.dumps({'type': 'complete'})}\n\n"
+            yield sse_event({"type": "complete"})
             
         except Exception as e:
             db.rollback()
             logger.error(f"流式辩论失败: {e}")
-            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
-    
-    return StreamingResponse(
-        generate(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"
-        }
-    )
+            yield sse_event({"type": "error", "error": str(e)})
+
+    return sse_response(generate())
