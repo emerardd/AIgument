@@ -160,7 +160,7 @@ export default function DialecticEngine() {
                     <div className="flex flex-wrap justify-center items-center gap-4 sm:gap-8">
                         <div className="flex items-center gap-2">
                             <span className="text-sm text-muted-foreground font-medium">轮次数</span>
-                            <div className="flex bg-muted/30 rounded-xl p-1 gap-1">
+                            <div className="flex items-center bg-muted/30 rounded-xl p-1 gap-1">
                                 {[5, 7, 9].map((n) => (
                                     <button
                                         key={n}
@@ -175,6 +175,20 @@ export default function DialecticEngine() {
                                         {n}轮
                                     </button>
                                 ))}
+                                <div className="flex items-center gap-1 px-2">
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={15}
+                                        value={rounds}
+                                        onChange={(e) => {
+                                            const v = Math.min(15, Math.max(1, Number(e.target.value) || 1))
+                                            setRounds(v)
+                                        }}
+                                        className="w-12 h-8 text-center text-sm font-bold rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/30 outline-none"
+                                    />
+                                    <span className="text-xs text-muted-foreground">轮</span>
+                                </div>
                             </div>
                         </div>
 

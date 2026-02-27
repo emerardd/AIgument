@@ -15,6 +15,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from main import app
 from database import Base, get_db
+import models.session  # noqa: F401 - register Session model
+import models.debate_record  # noqa: F401 - register DebateRecord model
 
 
 # 测试数据库（内存 SQLite）

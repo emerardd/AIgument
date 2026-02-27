@@ -12,6 +12,7 @@ from models.session import Session, Message
 from schemas.debate import DebateRequest
 from services.ai_client import AIClient
 from agents import DebateOrchestrator
+from models.debate_record import DebateRecord
 from utils import get_api_key, sse_event, sse_response
 from utils.logger import get_logger
 
@@ -29,6 +30,10 @@ async def agent_stream_debate(
     temperature: Optional[float] = None,
     seed: Optional[int] = None,
     preset: Optional[Literal["basic", "quality", "budget"]] = None,
+    pro_provider: Optional[str] = None,
+    pro_model: Optional[str] = None,
+    con_provider: Optional[str] = None,
+    con_model: Optional[str] = None,
     db: DBSession = Depends(get_db)
 ):
     """
@@ -79,6 +84,16 @@ async def agent_stream_debate(
             # 创建 AI 客户端和协调器
             ai_client = AIClient(provider=provider, model=model, api_key=api_key, seed=seed)
             orchestrator = DebateOrchestrator(ai_client=ai_client)
+
+            # 混合模型支持：为正反方创建独立的 AI 客户端
+            pro_ai_client = None
+            con_ai_client = None
+            if pro_provider and pro_model:
+                pro_api_key = get_api_key(pro_provider)
+                pro_ai_client = AIClient(provider=pro_provider, model=pro_model, api_key=pro_api_key, seed=seed)
+            if con_provider and con_model:
+                con_api_key = get_api_key(con_provider)
+                con_ai_client = AIClient(provider=con_provider, model=con_model, api_key=con_api_key, seed=seed)
             
             # 初始化辩论
             await orchestrator.setup_debate(
@@ -88,7 +103,9 @@ async def agent_stream_debate(
                 model=model,
                 temperature=temperature,
                 seed=seed,
-                preset=preset
+                preset=preset,
+                pro_ai_client=pro_ai_client,
+                con_ai_client=con_ai_client
             )
             settings = session.settings or {}
             settings["rounds"] = orchestrator.total_rounds
@@ -135,10 +152,35 @@ async def agent_stream_debate(
             
             # 保存最终状态
             final_state = orchestrator.get_full_state()
+            trace = orchestrator.build_trace()
             settings = session.settings or {}
             settings["final_state"] = final_state
-            settings["trace"] = orchestrator.build_trace()
+            settings["trace"] = trace
             session.settings = settings
+
+            # 保存 DebateRecord
+            run_cfg = orchestrator.run_config
+            verdict_data = trace.get("verdict") or {}
+            debate_record = DebateRecord(
+                session_id=session.id,
+                topic=topic,
+                total_rounds=orchestrator.total_rounds,
+                winner=verdict_data.get("winner"),
+                pro_provider=run_cfg.get("pro_provider", run_cfg.get("provider")),
+                pro_model=run_cfg.get("pro_model", run_cfg.get("model")),
+                con_provider=run_cfg.get("con_provider", run_cfg.get("provider")),
+                con_model=run_cfg.get("con_model", run_cfg.get("model")),
+                jury_model=run_cfg.get("model"),
+                is_mixed=1 if run_cfg.get("mixed_model") else 0,
+                total_score_pro=verdict_data.get("pro_total_score", 0),
+                total_score_con=verdict_data.get("con_total_score", 0),
+                margin=verdict_data.get("margin"),
+                trace=trace,
+                verdict=verdict_data,
+                evaluations=trace.get("evaluations"),
+                run_config=run_cfg,
+            )
+            db.add(debate_record)
             
             db.commit()
             logger.info(f"Multi-Agent 辩论完成: 会话 {session.id}")

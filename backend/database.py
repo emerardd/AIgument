@@ -32,4 +32,5 @@ def get_db():
 def init_db():
     """初始化数据库表"""
     from models import session  # noqa: F401
+    from models import debate_record  # noqa: F401
     Base.metadata.create_all(bind=engine)

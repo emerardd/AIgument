@@ -109,22 +109,28 @@ export function SocraticQAView() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-background via-background to-green-500/5">
-            <div className="container max-w-4xl mx-auto px-4 py-8">
+        <div className="min-h-screen gradient-bg">
+            <div className="container mx-auto px-4 sm:px-6 py-8 sm:py-16">
                 {/* 头部 */}
-                <div className="text-center mb-8">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/10 mb-4">
-                        <Brain className="w-5 h-5 text-green-500" />
-                        <span className="font-medium text-green-600">苏格拉底问答</span>
+                <div className="text-center mb-8 sm:mb-12">
+                    <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-primary/10 text-primary text-xs sm:text-sm font-medium mb-4 sm:mb-6 animate-scale-in">
+                        <Brain className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        <span>苏格拉底问答</span>
                     </div>
-                    <h1 className="text-3xl font-bold mb-2">引导式学习</h1>
-                    <p className="text-muted-foreground">
+
+                    <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-3 sm:mb-4 tracking-tight animate-slide-up delay-100 opacity-0">
+                        <span className="text-gradient">引导式</span>
+                        <br />
+                        <span className="text-foreground/80">深度学习</span>
+                    </h1>
+
+                    <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed animate-slide-up delay-200 opacity-0 px-4 sm:px-0">
                         通过提问引导你思考，而不是直接给答案
                     </p>
                 </div>
 
                 {/* 模式选择 */}
-                <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="grid grid-cols-3 gap-4 mb-6 max-w-3xl mx-auto animate-fade-in delay-200 opacity-0">
                     {modes.map(mode => (
                         <button
                             key={mode.id}
@@ -132,13 +138,13 @@ export function SocraticQAView() {
                             className={`
                                 p-4 rounded-xl border transition-all text-left
                                 ${selectedMode === mode.id
-                                    ? 'bg-green-500/10 border-green-500 ring-2 ring-green-500/20'
-                                    : 'bg-card border-border hover:border-green-500/50'
+                                    ? 'bg-primary/10 border-primary ring-2 ring-primary/20'
+                                    : 'bg-card border-border hover:border-primary/50'
                                 }
                             `}
                         >
                             <div className="flex items-center gap-2 mb-2">
-                                <span className={selectedMode === mode.id ? 'text-green-500' : 'text-muted-foreground'}>
+                                <span className={selectedMode === mode.id ? 'text-primary' : 'text-muted-foreground'}>
                                     {MODE_ICONS[mode.id] || <Lightbulb className="w-5 h-5" />}
                                 </span>
                                 <span className="font-medium text-sm">{mode.name}</span>
@@ -149,21 +155,21 @@ export function SocraticQAView() {
                 </div>
 
                 {/* 输入区域 */}
-                <div className="bg-card rounded-2xl border shadow-sm p-6 mb-6">
+                <div className="card-modern p-6 mb-6 max-w-3xl mx-auto">
                     <div className="relative">
                         <textarea
                             value={question}
                             onChange={e => setQuestion(e.target.value)}
                             onKeyDown={handleKeyDown}
                             placeholder="输入你的问题，例如：什么是机器学习？为什么天空是蓝色的？"
-                            className="w-full px-4 py-3 pr-12 rounded-xl bg-muted/50 border border-border focus:border-green-500 focus:ring-2 focus:ring-green-500/20 outline-none transition-all resize-none"
+                            className="w-full px-4 py-3 pr-12 rounded-xl bg-muted/50 border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all resize-none"
                             rows={3}
                             disabled={isLoading}
                         />
                         <button
                             onClick={askQuestion}
                             disabled={isLoading || !question.trim()}
-                            className="absolute right-3 bottom-3 p-2 rounded-lg bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            className="absolute right-3 bottom-3 p-2.5 rounded-lg btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isLoading ? (
                                 <RefreshCw className="w-5 h-5 animate-spin" />
@@ -195,8 +201,8 @@ export function SocraticQAView() {
 
                 {/* 回复区域 */}
                 {response && (
-                    <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">
-                        <div className="px-6 py-4 border-b bg-green-500/5">
+                    <div className="card-modern overflow-hidden max-w-3xl mx-auto">
+                        <div className="px-6 py-4 border-b bg-primary/5">
                             <div className="flex items-center gap-2">
                                 {MODE_ICONS[selectedMode]}
                                 <span className="font-medium">
@@ -280,8 +286,8 @@ function ResponseRenderer({ content }: { content: string }) {
                 // 处理引导问题（以数字或问号开头）
                 if (/^\d+[.)]/.test(line) || line.includes('？') || line.includes('?')) {
                     return (
-                        <div key={idx} className="flex items-start gap-2 my-2 p-3 rounded-lg bg-green-500/5 border-l-2 border-green-500">
-                            <ChevronRight className="w-4 h-4 mt-0.5 text-green-500 flex-shrink-0" />
+                        <div key={idx} className="flex items-start gap-2 my-2 p-3 rounded-lg bg-primary/5 border-l-2 border-primary">
+                            <ChevronRight className="w-4 h-4 mt-0.5 text-primary flex-shrink-0" />
                             <span>{line}</span>
                         </div>
                     )

@@ -13,6 +13,11 @@ export interface DebateSettings {
     provider: 'deepseek' | 'openai' | 'gemini' | 'claude'
     model: string
     stream: boolean
+    // 混合模型辩论
+    pro_provider?: string
+    pro_model?: string
+    con_provider?: string
+    con_model?: string
 }
 
 export interface DebateSession {
@@ -264,4 +269,3 @@ export interface DialecticStreamEvent {
     error?: string
     message?: string
 }
-

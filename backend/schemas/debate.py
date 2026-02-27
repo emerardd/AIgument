@@ -56,6 +56,24 @@ class DebateRequest(BaseModel):
         default=None,
         description="运行配置预设：basic/quality/budget"
     )
+
+    # 混合模型辩论支持：正反方可选择不同模型
+    pro_provider: Optional[Literal["deepseek", "openai", "gemini", "claude", "mock"]] = Field(
+        default=None,
+        description="正方 AI 提供商（不设则使用统一 provider）"
+    )
+    pro_model: Optional[str] = Field(
+        default=None,
+        description="正方模型名称（不设则使用统一 model）"
+    )
+    con_provider: Optional[Literal["deepseek", "openai", "gemini", "claude", "mock"]] = Field(
+        default=None,
+        description="反方 AI 提供商（不设则使用统一 provider）"
+    )
+    con_model: Optional[str] = Field(
+        default=None,
+        description="反方模型名称（不设则使用统一 model）"
+    )
     
     model_config = {
         "json_schema_extra": {

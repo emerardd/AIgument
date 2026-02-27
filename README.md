@@ -46,8 +46,8 @@
 
 - DeepSeek (deepseek-chat, deepseek-reasoner)
 - OpenAI (gpt-5.2, gpt-5-mini, gpt-5-nano, gpt-5.2-pro, gpt-5, gpt-4.1)
-- Google Gemini (gemini-2.5-flash, gemini-2.5-pro, gemini-3-flash-preview, gemini-3-pro-preview)
-- Anthropic Claude (claude-opus-4.5, claude-sonnet-4.5)
+- Google Gemini (gemini-2.5-flash, gemini-2.5-pro, gemini-3-flash-preview, gemini-3.1-pro-preview)
+- Anthropic Claude (claude-opus-4.6, claude-sonnet-4.6)
 
 
 

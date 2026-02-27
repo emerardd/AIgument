@@ -73,7 +73,9 @@ class DebateOrchestrator(BaseAgent):
         model: str = "deepseek-chat",
         temperature: Optional[float] = None,
         seed: Optional[int] = None,
-        preset: Optional[str] = None
+        preset: Optional[str] = None,
+        pro_ai_client=None,
+        con_ai_client=None
     ) -> Dict[str, Any]:
         """初始化辩论
         
@@ -98,14 +100,26 @@ class DebateOrchestrator(BaseAgent):
             total_rounds = min(total_rounds, max_rounds)
         self.total_rounds = total_rounds
 
+        # 确定是否为混合模型模式
+        is_mixed = pro_ai_client is not None or con_ai_client is not None
+
         self.run_config = {
             "provider": provider,
             "model": model,
             "temperature": temperature,
             "seed": seed,
             "max_rounds": total_rounds,
-            "preset": preset
+            "preset": preset,
+            "mixed_model": is_mixed,
         }
+
+        # 记录混合模型信息
+        if pro_ai_client is not None:
+            self.run_config["pro_provider"] = getattr(pro_ai_client, "provider", "unknown")
+            self.run_config["pro_model"] = getattr(pro_ai_client, "model", "unknown")
+        if con_ai_client is not None:
+            self.run_config["con_provider"] = getattr(con_ai_client, "provider", "unknown")
+            self.run_config["con_model"] = getattr(con_ai_client, "model", "unknown")
 
         if hasattr(self.ai_client, "seed"):
             self.ai_client.seed = seed
@@ -114,11 +128,14 @@ class DebateOrchestrator(BaseAgent):
         self.memory_store = DebateMemory(topic=topic, total_rounds=total_rounds)
         self.memory_store.set_run_config(self.run_config)
         
-        # 创建辩论者 Agent
+        # 创建辩论者 Agent（支持混合模型）
+        pro_client = pro_ai_client or self.ai_client
+        con_client = con_ai_client or self.ai_client
+
         self.pro_agent = DebaterAgent(
             name="正方",
             position="pro",
-            ai_client=self.ai_client,
+            ai_client=pro_client,
             topic=topic,
             temperature=temperature
         )
@@ -126,7 +143,7 @@ class DebateOrchestrator(BaseAgent):
         self.con_agent = DebaterAgent(
             name="反方",
             position="con",
-            ai_client=self.ai_client,
+            ai_client=con_client,
             topic=topic,
             temperature=temperature
         )

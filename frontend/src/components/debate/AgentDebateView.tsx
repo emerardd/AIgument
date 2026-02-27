@@ -12,12 +12,28 @@ import { EvaluationPanel, StandingsPanel, VerdictPanel } from './ScorePanel'
 import { ArgumentGraphView } from './ArgumentGraphView'
 import {
     Loader2, ThumbsUp, ThumbsDown, ArrowRight,
-    Brain, Eye, EyeOff, Sparkles, Settings2
+    Brain, Eye, EyeOff, Sparkles, Settings2, Shuffle, ListChecks, Download
 } from 'lucide-react'
+import type { Provider } from '@/stores/settingsStore'
+import { presetTopics } from '@/config/presetTopics'
+import { exportDebateMarkdown } from '@/utils/exportUtils'
+
+const modelPresets: Record<Provider, string[]> = {
+    deepseek: ['deepseek-chat', 'deepseek-reasoner'],
+    openai: ['gpt-5.2', 'gpt-5-mini', 'gpt-5-nano', 'gpt-5.2-pro', 'gpt-5', 'gpt-4.1'],
+    gemini: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-flash-preview', 'gemini-3.1-pro-preview'],
+    claude: ['claude-opus-4.6', 'claude-sonnet-4.6'],
+}
 
 export function AgentDebateView() {
     const [inputTopic, setInputTopic] = useState('')
     const [rounds, setRounds] = useState(3)
+    const [mixedMode, setMixedMode] = useState(false)
+    const [proProvider, setProProvider] = useState<Provider>('deepseek')
+    const [proModel, setProModel] = useState('deepseek-chat')
+    const [conProvider, setConProvider] = useState<Provider>('openai')
+    const [conModel, setConModel] = useState('gpt-5-mini')
+    const [showTopics, setShowTopics] = useState(false)
     const messagesEndRef = useRef<HTMLDivElement>(null)
 
     const {
@@ -73,6 +89,12 @@ export function AgentDebateView() {
             provider: defaultProvider,
             model: defaultModel,
             stream: true,
+            ...(mixedMode ? {
+                pro_provider: proProvider,
+                pro_model: proModel,
+                con_provider: conProvider,
+                con_model: conModel,
+            } : {}),
         }
 
         // 消息索引映射
@@ -222,7 +244,7 @@ export function AgentDebateView() {
                 </div>
 
                 {/* 输入区域 */}
-                <div className="card-modern p-1 sm:p-1.5 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-background/50 backdrop-blur-sm animate-scale-in delay-100 opacity-0">
+                <div className="card-modern p-1 sm:p-1.5 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-background/50 backdrop-blur-sm animate-scale-in delay-100 opacity-0 relative">
                     <Input
                         placeholder="例如：人工智能是否会取代人类工作？"
                         value={inputTopic}
@@ -230,6 +252,13 @@ export function AgentDebateView() {
                         className="h-11 sm:h-12 border-0 bg-transparent focus-visible:ring-0 text-base sm:text-lg px-3 sm:px-4 shadow-none"
                         onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleStart()}
                     />
+                    <button
+                        onClick={() => setShowTopics(!showTopics)}
+                        className="h-11 px-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors shrink-0"
+                        title="热门主题"
+                    >
+                        <ListChecks className="h-5 w-5" />
+                    </button>
                     <Button
                         onClick={handleStart}
                         disabled={isLoading || !inputTopic.trim()}
@@ -241,6 +270,35 @@ export function AgentDebateView() {
                             <ArrowRight className="h-5 w-5" />
                         )}
                     </Button>
+
+                    {/* 预设主题下拉 */}
+                    {showTopics && (
+                        <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl p-4 bg-background border border-border shadow-2xl z-50 max-h-80 overflow-y-auto">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {presetTopics.map((cat) => (
+                                    <div key={cat.name}>
+                                        <div className="text-xs font-medium text-muted-foreground mb-2">
+                                            {cat.icon} {cat.name}
+                                        </div>
+                                        <div className="space-y-1">
+                                            {cat.topics.map((t) => (
+                                                <button
+                                                    key={t}
+                                                    onClick={() => {
+                                                        setInputTopic(t)
+                                                        setShowTopics(false)
+                                                    }}
+                                                    className="w-full text-left text-sm px-3 py-1.5 rounded-lg hover:bg-muted/50 text-foreground/80 hover:text-foreground transition-colors truncate"
+                                                >
+                                                    {t}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* 设置面板 */}
@@ -248,7 +306,7 @@ export function AgentDebateView() {
                     {/* 轮次选择 */}
                     <div className="flex items-center gap-3">
                         <span className="text-sm text-muted-foreground font-medium">辩论轮次</span>
-                        <div className="flex bg-muted/30 rounded-xl p-1 gap-1">
+                        <div className="flex items-center bg-muted/30 rounded-xl p-1 gap-1">
                             {[
                                 { n: 1, label: '快速', desc: '1轮' },
                                 { n: 3, label: '标准', desc: '3轮' },
@@ -270,6 +328,21 @@ export function AgentDebateView() {
                                     <span className="font-bold">{desc}</span>
                                 </button>
                             ))}
+                            {/* 自定义轮数输入 */}
+                            <div className="flex items-center gap-1 px-2">
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={10}
+                                    value={rounds}
+                                    onChange={(e) => {
+                                        const v = Math.min(10, Math.max(1, Number(e.target.value) || 1))
+                                        setRounds(v)
+                                    }}
+                                    className="w-12 h-8 text-center text-sm font-bold rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/30 outline-none"
+                                />
+                                <span className="text-xs text-muted-foreground">轮</span>
+                            </div>
                         </div>
                     </div>
 
@@ -304,17 +377,95 @@ export function AgentDebateView() {
                         </button>
                     </div>
 
-                    {/* 模型信息 */}
-                    <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-muted/20">
-                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-                        <div className="text-left">
-                            <div className="text-xs text-muted-foreground">AI 模型</div>
-                            <div className="text-sm font-medium text-foreground">{defaultModel}</div>
-                        </div>
+                    {/* 模型选择 */}
+                    <div className="flex flex-wrap justify-center items-center gap-3">
+                        {/* 混合模式开关 */}
+                        <button
+                            onClick={() => setMixedMode(!mixedMode)}
+                            className={`
+                                flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors
+                                ${mixedMode
+                                    ? 'bg-gradient-to-r from-blue-500/20 to-orange-500/20 text-primary border border-primary/30'
+                                    : 'bg-muted/30 text-muted-foreground hover:text-foreground'}
+                            `}
+                        >
+                            <Shuffle className="w-3 h-3" />
+                            混合模型
+                        </button>
+
+                        {mixedMode ? (
+                            <div className="flex flex-wrap gap-2 items-center">
+                                {/* 正方模型 */}
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                                    <ThumbsUp className="w-3 h-3 text-blue-500" />
+                                    <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">正方</span>
+                                    <select
+                                        value={proProvider}
+                                        onChange={(e) => {
+                                            const p = e.target.value as Provider
+                                            setProProvider(p)
+                                            setProModel(modelPresets[p][0])
+                                        }}
+                                        className="text-xs bg-transparent border-0 outline-none text-foreground cursor-pointer"
+                                    >
+                                        <option value="deepseek">DeepSeek</option>
+                                        <option value="openai">OpenAI</option>
+                                        <option value="gemini">Gemini</option>
+                                        <option value="claude">Claude</option>
+                                    </select>
+                                    <select
+                                        value={proModel}
+                                        onChange={(e) => setProModel(e.target.value)}
+                                        className="text-xs bg-transparent border-0 outline-none text-foreground cursor-pointer max-w-[120px]"
+                                    >
+                                        {modelPresets[proProvider].map(m => (
+                                            <option key={m} value={m}>{m}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <span className="text-xs text-muted-foreground font-bold">VS</span>
+                                {/* 反方模型 */}
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-500/10 border border-orange-500/20">
+                                    <ThumbsDown className="w-3 h-3 text-orange-500" />
+                                    <span className="text-xs text-orange-600 dark:text-orange-400 font-medium">反方</span>
+                                    <select
+                                        value={conProvider}
+                                        onChange={(e) => {
+                                            const p = e.target.value as Provider
+                                            setConProvider(p)
+                                            setConModel(modelPresets[p][0])
+                                        }}
+                                        className="text-xs bg-transparent border-0 outline-none text-foreground cursor-pointer"
+                                    >
+                                        <option value="deepseek">DeepSeek</option>
+                                        <option value="openai">OpenAI</option>
+                                        <option value="gemini">Gemini</option>
+                                        <option value="claude">Claude</option>
+                                    </select>
+                                    <select
+                                        value={conModel}
+                                        onChange={(e) => setConModel(e.target.value)}
+                                        className="text-xs bg-transparent border-0 outline-none text-foreground cursor-pointer max-w-[120px]"
+                                    >
+                                        {modelPresets[conProvider].map(m => (
+                                            <option key={m} value={m}>{m}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-muted/20">
+                                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <div className="text-left">
+                                    <div className="text-xs text-muted-foreground">AI 模型</div>
+                                    <div className="text-sm font-medium text-foreground">{defaultModel}</div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -449,6 +600,25 @@ export function AgentDebateView() {
                 {verdict && sessionId && (
                     <div className="mt-8 animate-fade-in">
                         <ArgumentGraphView sessionId={sessionId} />
+                    </div>
+                )}
+
+                {/* 导出按钮 - 辩论完成后显示 */}
+                {verdict && (
+                    <div className="flex justify-center mt-4 animate-fade-in">
+                        <button
+                            onClick={() => exportDebateMarkdown({
+                                topic: useAgentDebateStore.getState().topic,
+                                messages,
+                                evaluations,
+                                verdict,
+                                totalRounds: useAgentDebateStore.getState().totalRounds,
+                            })}
+                            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-sm font-medium shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-105 transition-all duration-300"
+                        >
+                            <Download className="w-4 h-4" />
+                            导出 Markdown
+                        </button>
                     </div>
                 )}
 

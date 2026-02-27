@@ -14,8 +14,8 @@ const providerOptions: { value: Provider; label: string; description: string }[]
 const modelPresets: Record<Provider, string[]> = {
     deepseek: ['deepseek-chat', 'deepseek-reasoner'],
     openai: ['gpt-5.2', 'gpt-5-mini', 'gpt-5-nano', 'gpt-5.2-pro', 'gpt-5', 'gpt-4.1'],
-    gemini: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-flash-preview', 'gemini-3-pro-preview'],
-    claude: ['claude-opus-4.5', 'claude-sonnet-4.5'],
+    gemini: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-flash-preview', 'gemini-3.1-pro-preview'],
+    claude: ['claude-opus-4.6', 'claude-sonnet-4.6'],
 }
 
 export default function SettingsPage() {
@@ -75,8 +75,8 @@ export default function SettingsPage() {
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-soft">
-                                        {darkMode ? <Moon className="w-6 h-6 text-white" /> : <Sun className="w-6 h-6 text-white" />}
+                                    <div className="w-12 h-12 rounded-2xl bg-primary/15 flex items-center justify-center">
+                                        {darkMode ? <Moon className="w-6 h-6 text-primary" /> : <Sun className="w-6 h-6 text-primary" />}
                                     </div>
                                     <div>
                                         <h3 className="font-semibold text-foreground">外观模式</h3>
@@ -100,8 +100,8 @@ export default function SettingsPage() {
                     <Card className="glass shadow-soft border-0 overflow-hidden animate-fade-in" style={{ animationDelay: '0.1s' }}>
                         <CardContent className="p-6">
                             <div className="flex items-center gap-4 mb-6">
-                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-soft">
-                                    <Server className="w-6 h-6 text-white" />
+                                <div className="w-12 h-12 rounded-2xl bg-primary/15 flex items-center justify-center">
+                                    <Server className="w-6 h-6 text-primary" />
                                 </div>
                                 <div>
                                     <h3 className="font-semibold text-foreground">AI 服务提供商</h3>
@@ -123,7 +123,7 @@ export default function SettingsPage() {
                                             className={`
                                                 relative p-5 rounded-2xl text-left transition-all duration-300
                                                 ${isSelected
-                                                    ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-soft-lg'
+                                                    ? 'bg-primary text-primary-foreground shadow-soft-lg'
                                                     : 'bg-muted/50 hover:bg-muted text-foreground hover:shadow-soft'
                                                 }
                                             `}
@@ -148,8 +148,8 @@ export default function SettingsPage() {
                     <Card className="glass shadow-soft border-0 overflow-hidden animate-fade-in" style={{ animationDelay: '0.2s' }}>
                         <CardContent className="p-6">
                             <div className="flex items-center gap-4 mb-6">
-                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-soft">
-                                    <Cpu className="w-6 h-6 text-white" />
+                                <div className="w-12 h-12 rounded-2xl bg-primary/15 flex items-center justify-center">
+                                    <Cpu className="w-6 h-6 text-primary" />
                                 </div>
                                 <div>
                                     <h3 className="font-semibold text-foreground">AI 模型</h3>
@@ -166,7 +166,7 @@ export default function SettingsPage() {
                                         className={`
                                             px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300
                                             ${defaultModel === model
-                                                ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-soft'
+                                                ? 'bg-primary text-primary-foreground shadow-soft'
                                                 : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
                                             }
                                         `}
@@ -193,8 +193,8 @@ export default function SettingsPage() {
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-soft">
-                                        <Zap className="w-6 h-6 text-white" />
+                                    <div className="w-12 h-12 rounded-2xl bg-primary/15 flex items-center justify-center">
+                                        <Zap className="w-6 h-6 text-primary" />
                                     </div>
                                     <div>
                                         <h3 className="font-semibold text-foreground">流式输出</h3>
@@ -208,7 +208,7 @@ export default function SettingsPage() {
                                     className={`
                                         relative w-14 h-8 rounded-full transition-all duration-300
                                         ${streamMode
-                                            ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
+                                            ? 'bg-primary'
                                             : 'bg-muted'
                                         }
                                     `}

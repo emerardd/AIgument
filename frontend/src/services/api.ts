@@ -19,12 +19,18 @@ const api = axios.create({
 })
 
 function buildStreamParams(settings: DebateSettings): URLSearchParams {
-    return new URLSearchParams({
+    const params = new URLSearchParams({
         topic: settings.topic,
         rounds: settings.rounds.toString(),
         provider: settings.provider,
         model: settings.model,
     })
+    // 混合模型参数
+    if (settings.pro_provider) params.set('pro_provider', settings.pro_provider)
+    if (settings.pro_model) params.set('pro_model', settings.pro_model)
+    if (settings.con_provider) params.set('con_provider', settings.con_provider)
+    if (settings.con_model) params.set('con_model', settings.con_model)
+    return params
 }
 
 async function streamWithParams<TEvent>(

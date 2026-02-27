@@ -79,6 +79,6 @@ MODEL_PRICING = {
     "gpt-4.1": {"prompt": 0.01, "completion": 0.03},
     "gpt-5": {"prompt": 0.02, "completion": 0.06},
     "gemini-2.5-pro": {"prompt": 0.01, "completion": 0.03},
-    "claude-opus-4.5": {"prompt": 0.015, "completion": 0.05},
+    "claude-opus-4.6": {"prompt": 0.015, "completion": 0.05},
     "mock": {"prompt": 0.0, "completion": 0.0}
 }

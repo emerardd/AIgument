@@ -18,6 +18,7 @@ from database import init_db
 from routers.debate import router as debate_router
 from routers import chat, qa, history, evaluation
 from routers import dialectic
+from routers import analysis
 from exceptions import AIgumentException
 from utils.logger import get_logger
 
@@ -106,6 +107,7 @@ app.include_router(qa.router)
 app.include_router(history.router)
 app.include_router(evaluation.router)
 app.include_router(dialectic.router, prefix="/api", tags=["dialectic"])
+app.include_router(analysis.router)
 
 
 @app.get("/")

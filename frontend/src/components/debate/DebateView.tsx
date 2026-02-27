@@ -120,7 +120,7 @@ export function DebateView() {
                     {/* Rounds Selector */}
                     <div className="flex items-center gap-3">
                         <span className="text-sm text-muted-foreground font-medium">辩论轮次</span>
-                        <div className="flex bg-muted/30 rounded-xl p-1 gap-1">
+                        <div className="flex items-center bg-muted/30 rounded-xl p-1 gap-1">
                             {[
                                 { n: 1, label: '快速', desc: '1轮' },
                                 { n: 3, label: '标准', desc: '3轮' },
@@ -142,6 +142,20 @@ export function DebateView() {
                                     <span className="font-bold">{desc}</span>
                                 </button>
                             ))}
+                            <div className="flex items-center gap-1 px-2">
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={10}
+                                    value={rounds}
+                                    onChange={(e) => {
+                                        const v = Math.min(10, Math.max(1, Number(e.target.value) || 1))
+                                        setRounds(v)
+                                    }}
+                                    className="w-12 h-8 text-center text-sm font-bold rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/30 outline-none"
+                                />
+                                <span className="text-xs text-muted-foreground">轮</span>
+                            </div>
                         </div>
                     </div>
 
