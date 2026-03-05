@@ -5,7 +5,7 @@
 """
 from sqlalchemy import Column, Integer, String, Text, Float, ForeignKey, JSON, DateTime
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 
 from database import Base
 
@@ -43,11 +43,13 @@ class DebateRecord(Base):
     run_config = Column(JSON, nullable=True)     # 运行配置
 
     # 时间
-    created_at = Column(DateTime, default=datetime.utcnow)
-    completed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
 
     # 关联
     session = relationship("Session", backref="debate_record")
 
     def __repr__(self):
         return f"<DebateRecord(id={self.id}, topic='{self.topic[:30]}', winner='{self.winner}')>"
+
+

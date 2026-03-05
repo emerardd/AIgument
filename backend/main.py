@@ -68,12 +68,12 @@ async def aigument_exception_handler(request: Request, exc: AIgumentException):
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
     """处理通用异常"""
-    logger.error(f"Unhandled exception: {str(exc)}")
+    logger.exception("Unhandled exception")
     return JSONResponse(
         status_code=500,
         content={
             "error": "INTERNAL_ERROR",
-            "message": str(exc),
+            "message": "Internal server error",
             "details": {}
         }
     )
@@ -141,3 +141,4 @@ if __name__ == "__main__":
         port=5000,
         reload=True
     )
+

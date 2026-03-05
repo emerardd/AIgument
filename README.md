@@ -67,7 +67,7 @@
 - **Uvicorn** - ASGI 服务器
 
 ### 前端
-- **React 18** - 用户界面库
+- **React 19** - 用户界面库
 - **TypeScript** - 类型安全
 - **Vite** - 快速构建工具
 - **Tailwind CSS** - 原子化 CSS 框架
@@ -186,7 +186,7 @@ cd backend
 python main.py
 ```
 
-**启动前端**（端口 5173）：
+**启动前端**（端口 3000）：
 ```bash
 cd frontend
 pnpm dev --host
@@ -194,7 +194,7 @@ pnpm dev --host
 
 ### 5. 访问应用
 
-- **前端界面**：http://localhost:5173
+- **前端界面**：http://localhost:3000
 - **API 文档**：http://localhost:5000/docs
 
 ## 📡 API 端点

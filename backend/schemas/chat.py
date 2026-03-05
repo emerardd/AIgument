@@ -14,10 +14,14 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     """聊天请求模型"""
     message: str = Field(..., min_length=1, description="用户消息")
-    history: list[ChatMessage] = Field(default=[], description="历史消息")
-    provider: Literal["deepseek", "openai"] = Field(default="deepseek", description="AI提供商")
+    history: list[ChatMessage] = Field(default_factory=list, description="历史消息")
+    provider: Literal["deepseek", "openai", "gemini", "claude", "mock"] = Field(
+        default="deepseek",
+        description="AI提供商",
+    )
     model: str = Field(default="deepseek-chat", description="模型名称")
     stream: bool = Field(default=True, description="是否使用流式输出")
+    session_id: Optional[int] = Field(default=None, description="会话ID（用于续聊）")
 
 
 class ChatResponse(BaseModel):

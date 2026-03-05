@@ -12,14 +12,15 @@ interface QAMessage {
     content: string
 }
 
-type QAStyle = 'comprehensive' | 'concise' | 'socratic'
+type QAStyle = 'professional' | 'detailed' | 'concise'
 
 export function QAView() {
     const [question, setQuestion] = useState('')
     const [messages, setMessages] = useState<QAMessage[]>([])
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [style, setStyle] = useState<QAStyle>('comprehensive')
+    const [style, setStyle] = useState<QAStyle>('detailed')
+    const [sessionId, setSessionId] = useState<number | null>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLInputElement>(null)
 
@@ -33,7 +34,7 @@ export function QAView() {
 
     const styleOptions = [
         {
-            value: 'comprehensive' as const,
+            value: 'detailed' as const,
             label: '全面分析',
             icon: BookOpen,
             description: '多角度深入分析',
@@ -45,31 +46,41 @@ export function QAView() {
             description: '直奔主题要点',
         },
         {
-            value: 'socratic' as const,
-            label: '苏格拉底',
+            value: 'professional' as const,
+            label: '专业风格',
             icon: Brain,
-            description: '引导式思考',
+            description: '准确、专业表达',
         },
     ]
+
+    const buildHistory = () => {
+        return messages
+            .filter((msg) => msg.content.trim())
+            .map((msg) => ({ role: msg.role, content: msg.content }))
+    }
 
     const handleSubmit = async () => {
         if (!question.trim() || isLoading) return
 
         const userQuestion = question.trim()
-        setMessages(prev => [...prev, { role: 'user', content: userQuestion }])
+        const historyPayload = buildHistory()
+
+        setMessages((prev) => [...prev, { role: 'user', content: userQuestion }])
         setQuestion('')
         setIsLoading(true)
         setError(null)
         scrollToBottom()
 
-        setMessages(prev => [...prev, { role: 'assistant', content: '' }])
+        setMessages((prev) => [...prev, { role: 'assistant', content: '' }])
 
         if (streamMode) {
             await qaAPI.streamQA(
                 userQuestion,
                 (event) => {
-                    if (event.type === 'content' && event.content) {
-                        setMessages(prev => {
+                    if (event.type === 'session' && event.session_id) {
+                        setSessionId(event.session_id)
+                    } else if (event.type === 'content' && event.content) {
+                        setMessages((prev) => {
                             const updated = [...prev]
                             updated[updated.length - 1] = { role: 'assistant', content: event.content! }
                             return updated
@@ -87,7 +98,9 @@ export function QAView() {
                 },
                 style,
                 defaultProvider,
-                defaultModel
+                defaultModel,
+                historyPayload,
+                sessionId ?? undefined
             )
         } else {
             try {
@@ -95,9 +108,14 @@ export function QAView() {
                     userQuestion,
                     style,
                     defaultProvider,
-                    defaultModel
+                    defaultModel,
+                    sessionId ?? undefined,
+                    historyPayload
                 )
-                setMessages(prev => {
+                if (response.data.session_id) {
+                    setSessionId(response.data.session_id)
+                }
+                setMessages((prev) => {
                     const updated = [...prev]
                     updated[updated.length - 1] = { role: 'assistant', content: response.data.answer }
                     return updated
@@ -115,6 +133,7 @@ export function QAView() {
     const handleClear = () => {
         setMessages([])
         setError(null)
+        setSessionId(null)
     }
 
     return (

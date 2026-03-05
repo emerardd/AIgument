@@ -11,12 +11,13 @@ import { Loader2, Send, Trash2, User, Sparkles, MessageCircle } from 'lucide-rea
 
 export function ChatView() {
     const [inputMessage, setInputMessage] = useState('')
+    const [sessionId, setSessionId] = useState<number | null>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLInputElement>(null)
 
     const { messages, isLoading, error, addMessage, updateLastMessage, setLoading, setError, clear } =
         useChatStore()
-    const { streamMode } = useSettingsStore()
+    const { streamMode, defaultProvider, defaultModel } = useSettingsStore()
 
     const scrollToBottom = () => {
         setTimeout(() => {
@@ -24,12 +25,21 @@ export function ChatView() {
         }, 100)
     }
 
+    const buildHistory = (historyMessages: ChatMessage[]) => {
+        return historyMessages
+            .filter((msg) => (msg.role === 'user' || msg.role === 'assistant') && msg.content.trim())
+            .map((msg) => ({ role: msg.role, content: msg.content }))
+    }
+
     const handleSend = async () => {
         if (!inputMessage.trim() || isLoading) return
 
+        const trimmed = inputMessage.trim()
+        const historyPayload = buildHistory(messages)
+
         const userMessage: ChatMessage = {
             role: 'user',
-            content: inputMessage.trim(),
+            content: trimmed,
         }
 
         addMessage(userMessage)
@@ -48,7 +58,9 @@ export function ChatView() {
             await chatAPI.streamChat(
                 userMessage.content,
                 (event) => {
-                    if (event.type === 'content' && event.content) {
+                    if (event.type === 'session' && event.session_id) {
+                        setSessionId(event.session_id)
+                    } else if (event.type === 'content' && event.content) {
                         updateLastMessage(event.content)
                     } else if (event.type === 'complete') {
                         setLoading(false)
@@ -60,12 +72,26 @@ export function ChatView() {
                 (err) => {
                     setError(err.message)
                     setLoading(false)
-                }
+                },
+                defaultProvider,
+                defaultModel,
+                historyPayload,
+                sessionId ?? undefined
             )
         } else {
             try {
-                const response = await chatAPI.sendMessage(userMessage.content)
-                updateLastMessage(response.data.content || '无回复')
+                const response = await chatAPI.sendMessage(
+                    userMessage.content,
+                    defaultProvider,
+                    defaultModel,
+                    sessionId ?? undefined,
+                    historyPayload
+                )
+                if (response.data.session_id) {
+                    setSessionId(response.data.session_id)
+                }
+                const content = response.data.message?.content || response.data.content || '无回复'
+                updateLastMessage(content)
                 setLoading(false)
             } catch (err: unknown) {
                 setError(err instanceof Error ? err.message : '未知错误')
@@ -74,6 +100,11 @@ export function ChatView() {
         }
 
         inputRef.current?.focus()
+    }
+
+    const handleClear = () => {
+        clear()
+        setSessionId(null)
     }
 
     return (
@@ -156,7 +187,7 @@ export function ChatView() {
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={clear}
+                        onClick={handleClear}
                         disabled={messages.length === 0 || isLoading}
                         className="rounded-xl text-muted-foreground hover:text-foreground shrink-0"
                         title="清空对话"

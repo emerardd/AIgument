@@ -1,18 +1,23 @@
 """
 辩论者服务
 """
+import time
 from typing import Generator, Union, Optional
+
 from .ai_client import AIClient
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class Debater:
     """辩论者类"""
-    
+
     def __init__(
-        self, 
-        name: str, 
-        system_prompt: str, 
-        provider: str = "deepseek", 
+        self,
+        name: str,
+        system_prompt: str,
+        provider: str = "deepseek",
         model: str = "deepseek-chat",
         api_key: Optional[str] = None,
         temperature: float = 0.7,
@@ -33,58 +38,56 @@ class Debater:
         self.temperature = temperature
         self.conversation_history: list[dict] = []
         self.client = AIClient(provider=provider, model=model, api_key=api_key, seed=seed)
-    
+
     def _build_messages(self, opponent_message: str) -> list[dict]:
         """构建消息列表"""
         messages = [{"role": "system", "content": self.system_prompt}]
         messages.extend(self.conversation_history)
         messages.append({"role": "user", "content": opponent_message})
         return messages
-    
+
     def generate_response(self, opponent_message: str) -> str:
         """生成非流式回应"""
         messages = self._build_messages(opponent_message)
-        
+
         max_retries = 3
         for attempt in range(max_retries):
             try:
                 response_content = self.client.get_completion(messages, temperature=self.temperature)
-                
+
                 # 更新对话历史
                 self.conversation_history.append({"role": "user", "content": opponent_message})
                 self.conversation_history.append({"role": "assistant", "content": response_content})
-                
+
                 return response_content
-            except Exception as e:
-                print(f"[Debater] API调用失败 (尝试 {attempt + 1}/{max_retries}): {e}")
+            except Exception:
+                logger.exception("Debater API调用失败 (尝试 %s/%s)", attempt + 1, max_retries)
                 if attempt == max_retries - 1:
                     raise
-                import time
                 time.sleep(1)
-        
+
         return ""
-    
+
     def stream_response(self, opponent_message: str) -> Generator[str, None, None]:
         """流式生成回应"""
         messages = self._build_messages(opponent_message)
-        
+
         try:
             full_response = ""
             for content in self.client.chat_stream(messages, temperature=self.temperature):
                 full_response += content
                 yield content
-            
+
             # 更新对话历史
             self.conversation_history.append({"role": "user", "content": opponent_message})
             self.conversation_history.append({"role": "assistant", "content": full_response})
-            
-        except Exception as e:
-            print(f"[Debater] 流式API调用错误: {e}")
+
+        except Exception:
+            logger.exception("Debater流式API调用错误")
             raise
-    
+
     def get_response(self, opponent_message: str, stream: bool = False) -> Union[str, Generator[str, None, None]]:
         """获取回应，支持流式和非流式"""
         if stream:
             return self.stream_response(opponent_message)
-        else:
-            return self.generate_response(opponent_message)
+        return self.generate_response(opponent_message)

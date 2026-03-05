@@ -12,6 +12,7 @@ from typing import Dict, Any, List, Optional
 from .base_agent import BaseAgent, ThinkResult
 from pydantic import BaseModel, Field
 import json
+from utils.logger import get_logger
 
 
 class RoundScore(BaseModel):
@@ -52,6 +53,8 @@ class FinalVerdict(BaseModel):
     con_strengths: List[str] = Field(description="反方优势")
     key_turning_points: List[str] = Field(description="关键转折点")
 
+
+logger = get_logger(__name__)
 
 class JuryAgent(BaseAgent):
     """评审 Agent
@@ -292,7 +295,7 @@ class JuryAgent(BaseAgent):
             return evaluation
             
         except Exception as e:
-            print(f"[JuryAgent] 评估出错: {e}")
+            logger.exception("JuryAgent 评估出错")
             # 返回中性评分
             return RoundEvaluation(
                 round=round_num,
@@ -365,7 +368,7 @@ class JuryAgent(BaseAgent):
             return verdict
             
         except Exception as e:
-            print(f"[JuryAgent] 最终裁决出错: {e}")
+            logger.exception("JuryAgent 最终裁决出错")
             pro_total = sum(s.total for s in self.pro_scores)
             con_total = sum(s.total for s in self.con_scores)
             
@@ -406,3 +409,5 @@ class JuryAgent(BaseAgent):
         self.con_scores = []
         self.memory = []
         self.state.beliefs = {}
+
+

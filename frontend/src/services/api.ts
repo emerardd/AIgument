@@ -49,12 +49,29 @@ async function streamWithParams<TEvent>(
     }
 }
 
+export interface ChatHistoryItem {
+    role: 'user' | 'assistant' | 'system'
+    content: string
+}
+
+export interface DualChatRole {
+    id: string
+    name: string
+    persona: string
+    style: string
+    position: string
+}
+
+export interface QAMode {
+    id: string
+    name: string
+    description: string
+    icon: string
+}
+
 // ====== 辩论 API ======
 
 export const debateAPI = {
-    /**
-     * 流式辩论 - 使用 Server-Sent Events
-     */
     streamDebate: async (
         settings: DebateSettings,
         onEvent: (event: StreamEvent) => void,
@@ -68,22 +85,12 @@ export const debateAPI = {
         )
     },
 
-    /**
-     * 普通辩论（非流式）
-     */
     createDebate: (settings: DebateSettings) =>
         api.post<DebateSession>('/api/debate', settings),
 
-    /**
-     * 单轮辩论
-     */
     singleRound: (data: { topic: string; round: number }) =>
         api.post('/api/debate/single', data),
 
-    /**
-     * Multi-Agent 流式辩论 - 使用 DebateOrchestrator
-     * 支持思考过程、评分和最终裁决
-     */
     streamAgentDebate: async (
         settings: DebateSettings,
         onEvent: (event: AgentStreamEvent) => void,
@@ -118,27 +125,35 @@ export const dialecticAPI = {
 // ====== 对话 API ======
 
 export const chatAPI = {
-    /**
-     * 发送对话消息（非流式）
-     */
-    sendMessage: (message: string, provider?: string, model?: string, sessionId?: number) =>
-        api.post<{ session_id: number; role: string; content: string }>('/api/chat', {
-            message, provider, model, session_id: sessionId
+    sendMessage: (
+        message: string,
+        provider?: string,
+        model?: string,
+        sessionId?: number,
+        history?: ChatHistoryItem[]
+    ) =>
+        api.post<{ session_id: number; message?: { role: string; content: string }; content?: string }>('/api/chat', {
+            message,
+            provider,
+            model,
+            session_id: sessionId,
+            history: history || [],
         }),
 
-    /**
-     * 流式对话
-     */
     streamChat: async (
         message: string,
         onEvent: (event: { type: string; content?: string; role?: string; session_id?: number }) => void,
         onError: (error: Error) => void,
         provider?: string,
-        model?: string
+        model?: string,
+        history?: ChatHistoryItem[],
+        sessionId?: number
     ) => {
         const params = new URLSearchParams({ message })
         if (provider) params.set('provider', provider)
         if (model) params.set('model', model)
+        if (history && history.length > 0) params.set('history', JSON.stringify(history))
+        if (sessionId) params.set('session_id', String(sessionId))
 
         await streamWithParams<{ type: string; content?: string; role?: string; session_id?: number }>(
             '/api/chat/stream',
@@ -147,37 +162,97 @@ export const chatAPI = {
             onError
         )
     },
+
+    getRoles: () => api.get<{ roles: DualChatRole[] }>('/api/chat/roles'),
+
+    streamDualChat: async (
+        topic: string,
+        roleA: string,
+        roleB: string,
+        turns: number,
+        onEvent: (event: Record<string, unknown>) => void,
+        onError: (error: Error) => void,
+        provider?: string,
+        model?: string
+    ) => {
+        const params = new URLSearchParams({
+            topic,
+            role_a: roleA,
+            role_b: roleB,
+            turns: String(turns),
+        })
+        if (provider) params.set('provider', provider)
+        if (model) params.set('model', model)
+
+        await streamWithParams<Record<string, unknown>>('/api/chat/dual-stream', params, onEvent, onError)
+    },
 }
 
 // ====== 问答 API ======
 
 export const qaAPI = {
-    /**
-     * 提交问题（非流式）
-     */
-    askQuestion: (question: string, style?: string, provider?: string, model?: string, sessionId?: number) =>
+    askQuestion: (
+        question: string,
+        style?: string,
+        provider?: string,
+        model?: string,
+        sessionId?: number,
+        history?: ChatHistoryItem[]
+    ) =>
         api.post<{ session_id: number; answer: string; style: string }>('/api/qa', {
-            question, style, provider, model, session_id: sessionId
+            question,
+            style,
+            provider,
+            model,
+            session_id: sessionId,
+            history: history || [],
         }),
 
-    /**
-     * 流式问答
-     */
     streamQA: async (
         question: string,
         onEvent: (event: { type: string; content?: string; role?: string; session_id?: number }) => void,
         onError: (error: Error) => void,
         style?: string,
         provider?: string,
-        model?: string
+        model?: string,
+        history?: ChatHistoryItem[],
+        sessionId?: number
     ) => {
         const params = new URLSearchParams({ question })
         if (style) params.set('style', style)
         if (provider) params.set('provider', provider)
         if (model) params.set('model', model)
+        if (history && history.length > 0) params.set('history', JSON.stringify(history))
+        if (sessionId) params.set('session_id', String(sessionId))
 
         await streamWithParams<{ type: string; content?: string; role?: string; session_id?: number }>(
             '/api/qa/stream',
+            params,
+            onEvent,
+            onError
+        )
+    },
+
+    getModes: () => api.get<{ modes: QAMode[] }>('/api/qa/modes'),
+
+    streamSocraticQA: async (
+        question: string,
+        mode: 'socratic' | 'structured' | 'hybrid',
+        onEvent: (event: { type: string; content?: string; session_id?: number; error?: string }) => void,
+        onError: (error: Error) => void,
+        provider?: string,
+        model?: string,
+        history?: ChatHistoryItem[],
+        sessionId?: number
+    ) => {
+        const params = new URLSearchParams({ question, mode })
+        if (provider) params.set('provider', provider)
+        if (model) params.set('model', model)
+        if (history && history.length > 0) params.set('history', JSON.stringify(history))
+        if (sessionId) params.set('session_id', String(sessionId))
+
+        await streamWithParams<{ type: string; content?: string; session_id?: number; error?: string }>(
+            '/api/qa/socratic-stream',
             params,
             onEvent,
             onError
@@ -188,15 +263,11 @@ export const qaAPI = {
 // ====== 历史记录 API ======
 
 export const historyAPI = {
-    /**
-     * 获取历史记录列表
-     */
-    getHistory: (type: SessionType | 'all' = 'all') =>
-        api.get<{ history: HistoryItem[] }>(`/api/history?type=${type}`),
+    getHistory: (type: SessionType | 'all' = 'all', limit = 100, offset = 0) =>
+        api.get<{ history: HistoryItem[]; total: number; limit: number; offset: number; has_more: boolean }>(
+            `/api/history?type=${type}&limit=${limit}&offset=${offset}`
+        ),
 
-    /**
-     * 获取单个会话详情
-     */
     getSession: (id: number) => api.get<{
         session_id: number
         messages: Array<{
@@ -207,14 +278,8 @@ export const historyAPI = {
         }>
     }>(`/api/history/${id}`),
 
-    /**
-     * 删除会话
-     */
     deleteSession: (id: number) => api.delete(`/api/history/${id}`),
 
-    /**
-     * 导出会话
-     */
     exportSession: (id: number, format: 'md' | 'json' | 'txt' = 'md') =>
         api.get(`/api/history/${id}/export?format=${format === 'md' ? 'markdown' : format}`, {
             responseType: 'blob',

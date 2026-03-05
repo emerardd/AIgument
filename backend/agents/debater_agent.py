@@ -11,7 +11,10 @@
 from typing import Dict, Any, List, Optional
 from .base_agent import BaseAgent, ThinkResult
 import json
+from utils.logger import get_logger
 
+
+logger = get_logger(__name__)
 
 class DebaterAgent(BaseAgent):
     """辩论者 Agent
@@ -231,7 +234,7 @@ class DebaterAgent(BaseAgent):
             )
             
         except Exception as e:
-            print(f"[DebaterAgent] 思考过程出错: {e}")
+            logger.exception("DebaterAgent 思考过程出错")
             return ThinkResult(
                 reasoning=f"分析失败: {str(e)}",
                 analysis={},
@@ -278,7 +281,7 @@ class DebaterAgent(BaseAgent):
             return response
             
         except Exception as e:
-            print(f"[DebaterAgent] 生成论点出错: {e}")
+            logger.exception("DebaterAgent 生成论点出错")
             return f"[{self.name}发言生成失败]"
     
     async def react(self, context: Dict[str, Any]) -> tuple[ThinkResult, str]:
@@ -373,7 +376,7 @@ class DebaterAgent(BaseAgent):
             }
             
         except Exception as e:
-            print(f"[DebaterAgent] 流式生成出错: {e}")
+            logger.exception("DebaterAgent 流式生成出错")
             yield {
                 "type": "error",
                 "side": self.position,
@@ -391,3 +394,5 @@ class DebaterAgent(BaseAgent):
             "beliefs": self.state.beliefs,
             "goals": self.state.goals
         }
+
+

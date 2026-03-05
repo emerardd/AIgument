@@ -159,7 +159,7 @@ class SocraticQAService:
                 return default
             
             return json.loads(json_str)
-        except:
+        except (json.JSONDecodeError, ValueError, TypeError):
             return default
 
     def ask_socratic(self, question: str) -> Dict[str, Any]:
@@ -376,3 +376,5 @@ def create_socratic_qa(
 ) -> SocraticQAService:
     """创建苏格拉底问答服务"""
     return SocraticQAService(ai_client, mode)
+
+

@@ -14,7 +14,10 @@ from enum import Enum
 from datetime import datetime
 import json
 import uuid
+from utils.logger import get_logger
 
+
+logger = get_logger(__name__)
 
 class MessageType(Enum):
     """消息类型"""
@@ -340,7 +343,7 @@ class MessageBus:
                 try:
                     handler(message)
                 except Exception as e:
-                    print(f"[MessageBus] Handler error: {e}")
+                    logger.exception("MessageBus handler error")
         
         # Agent 订阅处理
         if message.receiver:
@@ -350,7 +353,7 @@ class MessageBus:
                     try:
                         handler(message)
                     except Exception as e:
-                        print(f"[MessageBus] Subscriber error: {e}")
+                        logger.exception("MessageBus subscriber error")
         else:
             # 广播消息
             for agent_id, handlers in self.subscribers.items():
@@ -359,7 +362,7 @@ class MessageBus:
                         try:
                             handler(message)
                         except Exception as e:
-                            print(f"[MessageBus] Broadcast error: {e}")
+                            logger.exception("MessageBus broadcast error")
     
     def get_messages(
         self,
@@ -464,3 +467,5 @@ class ProtocolValidator:
         is_valid, error = cls.validate(message)
         if not is_valid:
             raise ValueError(f"Invalid message: {error}")
+
+

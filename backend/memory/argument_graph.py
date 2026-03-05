@@ -416,7 +416,7 @@ class ArgumentAnalyzer:
                 start = response.find("[")
                 end = response.rfind("]") + 1
                 return json.loads(response[start:end])
-        except:
+        except (json.JSONDecodeError, ValueError, TypeError):
             pass
         return []
     
@@ -457,7 +457,7 @@ class ArgumentAnalyzer:
                 result = json.loads(response[start:end])
                 if result.get("has_relation"):
                     return result
-        except:
+        except (json.JSONDecodeError, ValueError, TypeError):
             pass
         return None
     
@@ -519,3 +519,5 @@ class ArgumentAnalyzer:
                     )
         
         return graph
+
+

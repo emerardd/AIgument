@@ -6,6 +6,8 @@
 2. 双角色对话 (dual) - 两个 AI 角色围绕主题对话
 """
 import json
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session as DBSession
 
@@ -15,8 +17,11 @@ from schemas.chat import ChatRequest, ChatMessage
 from services.ai_client import AIClient
 from services.dual_chat import create_dual_chat, ROLE_TEMPLATES
 from utils import get_api_key, resolve_prompt, sse_event, sse_response
+from utils.logger import get_logger
 
 router = APIRouter(prefix="/api", tags=["chat"])
+logger = get_logger(__name__)
+
 
 def get_chat_system_prompt() -> str:
     """获取对话系统提示词（使用 prompt-vcs 管理）"""
@@ -41,45 +46,89 @@ def build_chat_messages(user_message: str, history: list[dict] | list[ChatMessag
     return messages
 
 
+def _parse_history(history: str) -> list[dict]:
+    if not history:
+        return []
+    parsed = json.loads(history)
+    if not isinstance(parsed, list):
+        raise ValueError("history must be a JSON array")
+    return parsed
+
+
+def _get_or_create_chat_session(
+    db: DBSession,
+    session_id: Optional[int],
+    message: str,
+    provider: str,
+    model: str,
+) -> Session:
+    if session_id is not None:
+        session = db.query(Session).filter(Session.id == session_id).first()
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        if session.session_type != "chat":
+            raise HTTPException(status_code=400, detail="Session type mismatch")
+
+        settings = session.settings or {}
+        settings.update({"provider": provider, "model": model})
+        session.settings = settings
+        return session
+
+    session = Session(
+        session_type="chat",
+        topic=message[:100],
+        settings={"provider": provider, "model": model}
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    return session
+
+
 @router.post("/chat")
 async def chat(request: ChatRequest, db: DBSession = Depends(get_db)):
     """非流式对话接口"""
     if request.stream:
-        raise HTTPException(status_code=400, detail="此接口不支持流式输出，请使用 /api/stream-chat")
-    
+        raise HTTPException(status_code=400, detail="此接口不支持流式输出，请使用 /api/chat/stream")
+
     try:
         api_key = get_api_key(request.provider)
         client = AIClient(provider=request.provider, model=request.model, api_key=api_key)
-        
+
         messages = build_chat_messages(request.message, request.history)
-        
+
         # 获取回复
         response_content = client.get_completion(messages)
-        
+
         # 创建或更新会话
-        session = Session(
-            session_type="chat",
-            topic=request.message[:100],
-            settings={"provider": request.provider, "model": request.model}
+        session = _get_or_create_chat_session(
+            db=db,
+            session_id=request.session_id,
+            message=request.message,
+            provider=request.provider,
+            model=request.model,
         )
-        db.add(session)
-        db.commit()
-        db.refresh(session)
-        
+
         # 保存消息
         user_msg = Message(session_id=session.id, role="user", content=request.message)
         assistant_msg = Message(session_id=session.id, role="assistant", content=response_content)
         db.add(user_msg)
         db.add(assistant_msg)
         db.commit()
-        
+
+        # 同时返回标准 message 结构与平铺 content，兼容现有前端
         return {
             "session_id": session.id,
-            "message": {"role": "assistant", "content": response_content}
+            "message": {"role": "assistant", "content": response_content},
+            "content": response_content,
         }
-        
+
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
+        logger.exception("chat failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -89,53 +138,56 @@ def stream_chat(
     history: str = "[]",  # JSON字符串
     provider: str = "deepseek",
     model: str = "deepseek-chat",
+    session_id: Optional[int] = None,
     db: DBSession = Depends(get_db)
 ):
     """流式对话接口"""
-    
+
     def generate():
         try:
             api_key = get_api_key(provider)
             client = AIClient(provider=provider, model=model, api_key=api_key)
-            
+
             # 解析历史消息
-            history_list = json.loads(history) if history else []
-            
+            history_list = _parse_history(history)
             messages = build_chat_messages(message, history_list)
-            
-            # 创建会话
-            session = Session(
-                session_type="chat",
-                topic=message[:100],
-                settings={"provider": provider, "model": model}
+
+            # 创建或复用会话
+            session = _get_or_create_chat_session(
+                db=db,
+                session_id=session_id,
+                message=message,
+                provider=provider,
+                model=model,
             )
-            db.add(session)
-            db.commit()
-            db.refresh(session)
-            
+
             # 发送会话ID
             yield sse_event({"type": "session", "session_id": session.id})
-            
+
             # 保存用户消息
             user_msg = Message(session_id=session.id, role="user", content=message)
             db.add(user_msg)
             db.commit()
-            
+
             # 流式生成回复
             full_response = ""
             for chunk in client.chat_stream(messages):
                 full_response += chunk
                 yield sse_event({"type": "content", "content": full_response})
-            
+
             # 保存助手消息
             assistant_msg = Message(session_id=session.id, role="assistant", content=full_response)
             db.add(assistant_msg)
             db.commit()
-            
+
             yield sse_event({"type": "complete"})
-            
+
+        except HTTPException as e:
+            db.rollback()
+            yield sse_event({"type": "error", "error": e.detail})
         except Exception as e:
             db.rollback()
+            logger.exception("stream chat failed")
             yield sse_event({"type": "error", "error": str(e)})
 
     return sse_response(generate())
@@ -174,9 +226,9 @@ def stream_dual_chat(
 ):
     """
     双角色对话流式接口
-    
+
     两个 AI 角色围绕主题进行自然对话。
-    
+
     Args:
         topic: 对话主题
         role_a: 角色A模板名称
@@ -184,7 +236,7 @@ def stream_dual_chat(
         turns: 对话轮次
         provider: AI 提供商
         model: 模型
-    
+
     Returns:
         SSE 事件流，包含：
         - start: 对话开始，包含角色信息
@@ -196,7 +248,7 @@ def stream_dual_chat(
         try:
             api_key = get_api_key(provider)
             client = AIClient(provider=provider, model=model, api_key=api_key)
-            
+
             # 创建双角色对话服务
             dual_chat = create_dual_chat(
                 ai_client=client,
@@ -204,7 +256,7 @@ def stream_dual_chat(
                 role_a_template=role_a,
                 role_b_template=role_b
             )
-            
+
             # 创建会话
             session = Session(
                 session_type="dual_chat",
@@ -221,13 +273,13 @@ def stream_dual_chat(
             db.add(session)
             db.commit()
             db.refresh(session)
-            
+
             yield sse_event({"type": "session", "session_id": session.id})
-            
+
             # 运行对话
             for event in dual_chat.run_conversation(turns=turns):
                 yield sse_event(event, ensure_ascii=False)
-                
+
                 # 保存消息到数据库
                 if event.get("type") == "message_complete":
                     msg = Message(
@@ -241,14 +293,12 @@ def stream_dual_chat(
                         }
                     )
                     db.add(msg)
-            
+
             db.commit()
-            
+
         except Exception as e:
             db.rollback()
-            import traceback
-            print(f"[Dual Chat Error] {traceback.format_exc()}")
+            logger.exception("dual chat failed")
             yield sse_event({"type": "error", "error": str(e)})
 
     return sse_response(generate())
-

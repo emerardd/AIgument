@@ -16,10 +16,21 @@ router = APIRouter(prefix="/api", tags=["history"])
 @router.get("/history")
 async def get_history(
     type: str = "all",
+    limit: int = 100,
+    offset: int = 0,
     db: DBSession = Depends(get_db)
 ):
-    """获取历史记录列表"""
+    """获取历史记录列表（支持分页）"""
     try:
+        limit = max(1, min(limit, 500))
+        offset = max(0, offset)
+
+        base_query = db.query(Session)
+        if type != "all":
+            base_query = base_query.filter(Session.session_type == type)
+
+        total = base_query.count()
+
         query = db.query(
             Session.id.label("session_id"),
             Session.topic,
@@ -27,13 +38,13 @@ async def get_history(
             Session.created_at.label("start_time"),
             func.count(Message.id).label("message_count")
         ).outerjoin(Message).group_by(Session.id)
-        
+
         if type != "all":
             query = query.filter(Session.session_type == type)
-        
-        query = query.order_by(Session.created_at.desc())
+
+        query = query.order_by(Session.created_at.desc()).offset(offset).limit(limit)
         results = query.all()
-        
+
         history = []
         for r in results:
             history.append({
@@ -43,9 +54,15 @@ async def get_history(
                 "start_time": r.start_time.isoformat() if r.start_time else None,
                 "message_count": r.message_count
             })
-        
-        return {"history": history, "total": len(history)}
-        
+
+        return {
+            "history": history,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "has_more": offset + len(history) < total,
+        }
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -60,11 +77,11 @@ async def get_session_detail(
         session = db.query(Session).filter(Session.id == session_id).first()
         if not session:
             raise HTTPException(status_code=404, detail="会话不存在")
-        
+
         messages = db.query(Message).filter(
             Message.session_id == session_id
         ).order_by(Message.created_at).all()
-        
+
         return {
             "session_id": session.id,
             "type": session.session_type,
@@ -80,7 +97,7 @@ async def get_session_detail(
                 for msg in messages
             ]
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -97,12 +114,12 @@ async def delete_session(
         session = db.query(Session).filter(Session.id == session_id).first()
         if not session:
             raise HTTPException(status_code=404, detail="会话不存在")
-        
+
         db.delete(session)
         db.commit()
-        
+
         return {"success": True, "message": "会话已删除"}
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -121,18 +138,18 @@ async def export_session(
         session = db.query(Session).filter(Session.id == session_id).first()
         if not session:
             raise HTTPException(status_code=404, detail="会话不存在")
-        
+
         messages = db.query(Message).filter(
             Message.session_id == session_id
         ).order_by(Message.created_at).all()
-        
+
         if format == "markdown":
             # Markdown格式
             content = f"# {session.topic or '会话记录'}\n\n"
             content += f"类型: {session.session_type}\n"
             content += f"时间: {session.created_at.isoformat() if session.created_at else 'N/A'}\n\n"
             content += "---\n\n"
-            
+
             for msg in messages:
                 role_label = msg.role
                 if msg.role == "user":
@@ -143,9 +160,9 @@ async def export_session(
                     role_label = "👍 正方"
                 elif msg.role == "反方":
                     role_label = "👎 反方"
-                
+
                 content += f"### {role_label}\n\n{msg.content}\n\n"
-            
+
             return Response(
                 content=content,
                 media_type="text/markdown",
@@ -153,31 +170,31 @@ async def export_session(
                     "Content-Disposition": f"attachment; filename=session_{session_id}.md"
                 }
             )
-        else:
-            # JSON格式
-            data = {
-                "session_id": session.id,
-                "type": session.session_type,
-                "topic": session.topic,
-                "created_at": session.created_at.isoformat() if session.created_at else None,
-                "messages": [
-                    {
-                        "role": msg.role,
-                        "content": msg.content,
-                        "created_at": msg.created_at.isoformat() if msg.created_at else None
-                    }
-                    for msg in messages
-                ]
-            }
-            
-            return Response(
-                content=json.dumps(data, ensure_ascii=False, indent=2),
-                media_type="application/json",
-                headers={
-                    "Content-Disposition": f"attachment; filename=session_{session_id}.json"
+
+        # JSON格式
+        data = {
+            "session_id": session.id,
+            "type": session.session_type,
+            "topic": session.topic,
+            "created_at": session.created_at.isoformat() if session.created_at else None,
+            "messages": [
+                {
+                    "role": msg.role,
+                    "content": msg.content,
+                    "created_at": msg.created_at.isoformat() if msg.created_at else None
                 }
-            )
-        
+                for msg in messages
+            ]
+        }
+
+        return Response(
+            content=json.dumps(data, ensure_ascii=False, indent=2),
+            media_type="application/json",
+            headers={
+                "Content-Disposition": f"attachment; filename=session_{session_id}.json"
+            }
+        )
+
     except HTTPException:
         raise
     except Exception as e:

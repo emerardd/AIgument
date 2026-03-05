@@ -170,7 +170,7 @@ export function DualChatView() {
     }
 
     const getRoleInfo = (roleId: string) => {
-        return roles.find(r => r.id === roleId)
+        return roles.find((r) => r.id === roleId)
     }
 
     return (
@@ -393,7 +393,7 @@ export function DualChatView() {
                         <div className="space-y-4">
                             {messages.map((msg) => {
                                 const isRoleA = msg.role_id === 'a'
-                                const roleInfo = getRoleInfo(msg.role_id)
+                                const roleInfo = getRoleInfo(msg.role_id === 'a' ? roleA : roleB)
 
                                 return (
                                     <div
@@ -439,3 +439,7 @@ export function DualChatView() {
         </div>
     )
 }
+
+
+
+

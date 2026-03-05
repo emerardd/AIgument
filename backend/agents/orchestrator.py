@@ -16,9 +16,12 @@ from .protocol import MessageBus, MessageTemplates, MessageType, AgentMessage
 from memory.shared_memory import DebateMemory
 from config import RUN_CONFIG_PRESETS, MODEL_PRICING
 from utils.costing import estimate_cost
+from utils.logger import get_logger
 import json
 import asyncio
 
+
+logger = get_logger(__name__)
 
 class DebateOrchestrator(BaseAgent):
     """辩论协调器
@@ -156,10 +159,10 @@ class DebateOrchestrator(BaseAgent):
         )
         
         # 注册 Agent 到消息总线
-        self.message_bus.subscribe("pro", lambda msg: print(f"[MessageBus] 正方收到: {msg.message_type.value}"))
-        self.message_bus.subscribe("con", lambda msg: print(f"[MessageBus] 反方收到: {msg.message_type.value}"))
-        self.message_bus.subscribe("jury", lambda msg: print(f"[MessageBus] 评审收到: {msg.message_type.value}"))
-        self.message_bus.subscribe("orchestrator", lambda msg: print(f"[MessageBus] 主持人收到: {msg.message_type.value}"))
+        self.message_bus.subscribe("pro", lambda msg: logger.debug("[MessageBus] 正方收到: %s", msg.message_type.value))
+        self.message_bus.subscribe("con", lambda msg: logger.debug("[MessageBus] 反方收到: %s", msg.message_type.value))
+        self.message_bus.subscribe("jury", lambda msg: logger.debug("[MessageBus] 评审收到: %s", msg.message_type.value))
+        self.message_bus.subscribe("orchestrator", lambda msg: logger.debug("[MessageBus] 主持人收到: %s", msg.message_type.value))
         
         # 发布辩论设置消息
         setup_msg = MessageTemplates.status(
@@ -212,17 +215,17 @@ class DebateOrchestrator(BaseAgent):
             各种事件，包括：
             - type: opening/round_start/thinking/argument/evaluation/verdict/complete
         """
-        print(f"[DEBUG] run_debate started, state={self.debate_state}")
+        logger.debug("run_debate started, state=%s", self.debate_state)
         
         if self.debate_state != self.STATE_READY:
-            print(f"[DEBUG] 辩论未就绪, 当前状态: {self.debate_state}")
+            logger.debug("辩论未就绪, 当前状态: %s", self.debate_state)
             yield {"type": "error", "message": "辩论未就绪，请先调用 setup_debate"}
             return
         
         self.debate_state = self.STATE_IN_PROGRESS
         self.memory_store.start_debate()
         
-        print(f"[DEBUG] 开始辩论，主题: {self.topic}")
+        logger.debug("开始辩论，主题: %s", self.topic)
         
         # 开场
         yield {
@@ -258,11 +261,11 @@ class DebateOrchestrator(BaseAgent):
                 "history": debate_context["history"]
             }
             
-            print(f"[DEBUG] 第{round_num}轮 - 正方开始思考...")
+            logger.debug("第%s轮 - 正方开始思考...", round_num)
             
             # 正方思考
             pro_think, pro_argument = await self.pro_agent.react(pro_context)
-            print(f"[DEBUG] 正方思考完成，论点长度: {len(pro_argument)}")
+            logger.debug("正方思考完成，论点长度: %s", len(pro_argument))
             
             yield {
                 "type": "thinking",
@@ -625,3 +628,5 @@ class DebateOrchestrator(BaseAgent):
             "cost": cost,
             "message_history": self.message_bus.export_history()
         }
+
+

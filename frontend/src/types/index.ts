@@ -10,7 +10,7 @@ export interface DebateMessage {
 export interface DebateSettings {
     topic: string
     rounds: number
-    provider: 'deepseek' | 'openai' | 'gemini' | 'claude'
+    provider: 'deepseek' | 'openai' | 'gemini' | 'claude' | 'mock'
     model: string
     stream: boolean
     // 混合模型辩论
@@ -38,7 +38,7 @@ export interface ChatMessage {
 }
 
 export interface ChatSettings {
-    provider: 'deepseek' | 'openai'
+    provider: 'deepseek' | 'openai' | 'gemini' | 'claude' | 'mock'
     model: string
     stream: boolean
 }
@@ -52,12 +52,12 @@ export interface ChatSession {
 
 // ====== 问答相关类型 ======
 
-export type QAStyle = 'professional' | 'casual' | 'detailed' | 'concise'
+export type QAStyle = 'professional' | 'casual' | 'detailed' | 'concise' | 'comprehensive'
 
 export interface QARequest {
     question: string
     style: QAStyle
-    provider: 'deepseek' | 'openai'
+    provider: 'deepseek' | 'openai' | 'gemini' | 'claude' | 'mock'
     model: string
 }
 
@@ -269,3 +269,5 @@ export interface DialecticStreamEvent {
     error?: string
     message?: string
 }
+
+
