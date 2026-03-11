@@ -113,7 +113,7 @@ async def qa(request: QARequest, db: DBSession = Depends(get_db)):
         )
 
         # 获取回复
-        response_content = client.get_completion(messages)
+        response_content = await client.get_completion(messages)
 
         # 创建或复用会话
         session = _get_or_create_session(
@@ -147,7 +147,7 @@ async def qa(request: QARequest, db: DBSession = Depends(get_db)):
 
 
 @router.get("/qa/stream")
-def stream_qa(
+async def stream_qa(
     question: str,
     style: str = "professional",
     history: str = "[]",
@@ -158,16 +158,14 @@ def stream_qa(
 ):
     """流式问答接口"""
 
-    def generate():
+    async def generate():
         try:
             api_key = get_api_key(provider)
             client = AIClient(provider=provider, model=model, api_key=api_key)
 
-            # 解析历史消息
             history_list = _parse_history(history)
             messages = build_qa_messages(question=question, style=style, history=history_list)
 
-            # 创建或复用会话
             session = _get_or_create_session(
                 db=db,
                 session_id=session_id,
@@ -176,21 +174,17 @@ def stream_qa(
                 settings={"provider": provider, "model": model, "style": style},
             )
 
-            # 发送会话ID
             yield sse_event({"type": "session", "session_id": session.id})
 
-            # 保存用户消息
             user_msg = Message(session_id=session.id, role="user", content=question)
             db.add(user_msg)
             db.commit()
 
-            # 流式生成回复
             full_response = ""
-            for chunk in client.chat_stream(messages):
+            async for chunk in client.chat_stream(messages):
                 full_response += chunk
                 yield sse_event({"type": "content", "content": full_response})
 
-            # 保存助手消息
             assistant_msg = Message(session_id=session.id, role="assistant", content=full_response)
             db.add(assistant_msg)
             db.commit()
@@ -264,7 +258,7 @@ async def socratic_qa(
         qa_service = create_socratic_qa(client, mode=mode)
 
         # 获取回答
-        result = qa_service.ask(question)
+        result = await qa_service.ask(question)
 
         # 创建或复用会话
         session = _get_or_create_session(
@@ -308,7 +302,7 @@ async def socratic_qa(
 
 
 @router.get("/qa/socratic-stream")
-def stream_socratic_qa(
+async def stream_socratic_qa(
     question: str,
     mode: str = "hybrid",
     history: str = "[]",
@@ -322,23 +316,20 @@ def stream_socratic_qa(
 
     流式返回引导式或结构化回答。
     """
-    def generate():
+    async def generate():
         try:
             api_key = get_api_key(provider)
             client = AIClient(provider=provider, model=model, api_key=api_key)
 
-            # 创建服务
             qa_service = create_socratic_qa(client, mode=mode)
 
-            # 恢复历史（如果有）
             history_list = _parse_history(history)
             for msg in history_list:
                 qa_service.conversation_history.append({
                     "role": msg.get("role", "user"),
-                    "content": msg.get("content", "")
+                    "content": msg.get("content", ""),
                 })
 
-            # 创建或复用会话
             session = _get_or_create_session(
                 db=db,
                 session_id=session_id,
@@ -349,25 +340,22 @@ def stream_socratic_qa(
 
             yield sse_event({"type": "session", "session_id": session.id, "mode": mode})
 
-            # 保存用户消息
             user_msg = Message(session_id=session.id, role="user", content=question)
             db.add(user_msg)
             db.commit()
 
-            # 流式生成
             full_response = ""
-            for event in qa_service.stream_ask(question):
+            async for event in qa_service.stream_ask(question):
                 yield sse_event(event, ensure_ascii=False)
                 if event.get("type") == "complete":
                     full_response = event.get("content", "")
 
-            # 保存回复
             if full_response:
                 assistant_msg = Message(
                     session_id=session.id,
                     role="assistant",
                     content=full_response,
-                    meta_info={"mode": mode}
+                    meta_info={"mode": mode},
                 )
                 db.add(assistant_msg)
                 db.commit()
@@ -419,7 +407,7 @@ async def qa_follow_up(
             })
 
         # 处理用户回复
-        result = qa_service.follow_up(response)
+        result = await qa_service.follow_up(response)
 
         # 保存消息
         user_msg = Message(session_id=session_id, role="user", content=response)

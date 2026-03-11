@@ -98,7 +98,7 @@ async def chat(request: ChatRequest, db: DBSession = Depends(get_db)):
         messages = build_chat_messages(request.message, request.history)
 
         # 获取回复
-        response_content = client.get_completion(messages)
+        response_content = await client.get_completion(messages)
 
         # 创建或更新会话
         session = _get_or_create_chat_session(
@@ -133,9 +133,9 @@ async def chat(request: ChatRequest, db: DBSession = Depends(get_db)):
 
 
 @router.get("/chat/stream")
-def stream_chat(
+async def stream_chat(
     message: str,
-    history: str = "[]",  # JSON字符串
+    history: str = "[]",
     provider: str = "deepseek",
     model: str = "deepseek-chat",
     session_id: Optional[int] = None,
@@ -143,16 +143,14 @@ def stream_chat(
 ):
     """流式对话接口"""
 
-    def generate():
+    async def generate():
         try:
             api_key = get_api_key(provider)
             client = AIClient(provider=provider, model=model, api_key=api_key)
 
-            # 解析历史消息
             history_list = _parse_history(history)
             messages = build_chat_messages(message, history_list)
 
-            # 创建或复用会话
             session = _get_or_create_chat_session(
                 db=db,
                 session_id=session_id,
@@ -161,21 +159,17 @@ def stream_chat(
                 model=model,
             )
 
-            # 发送会话ID
             yield sse_event({"type": "session", "session_id": session.id})
 
-            # 保存用户消息
             user_msg = Message(session_id=session.id, role="user", content=message)
             db.add(user_msg)
             db.commit()
 
-            # 流式生成回复
             full_response = ""
-            for chunk in client.chat_stream(messages):
+            async for chunk in client.chat_stream(messages):
                 full_response += chunk
                 yield sse_event({"type": "content", "content": full_response})
 
-            # 保存助手消息
             assistant_msg = Message(session_id=session.id, role="assistant", content=full_response)
             db.add(assistant_msg)
             db.commit()
@@ -215,7 +209,7 @@ def get_available_roles():
 
 
 @router.get("/chat/dual-stream")
-def stream_dual_chat(
+async def stream_dual_chat(
     topic: str,
     role_a: str = "乐观主义者",
     role_b: str = "现实主义者",
@@ -229,14 +223,6 @@ def stream_dual_chat(
 
     两个 AI 角色围绕主题进行自然对话。
 
-    Args:
-        topic: 对话主题
-        role_a: 角色A模板名称
-        role_b: 角色B模板名称
-        turns: 对话轮次
-        provider: AI 提供商
-        model: 模型
-
     Returns:
         SSE 事件流，包含：
         - start: 对话开始，包含角色信息
@@ -244,20 +230,18 @@ def stream_dual_chat(
         - message_complete: 消息生成完成
         - complete: 对话结束
     """
-    def generate():
+    async def generate():
         try:
             api_key = get_api_key(provider)
             client = AIClient(provider=provider, model=model, api_key=api_key)
 
-            # 创建双角色对话服务
             dual_chat = create_dual_chat(
                 ai_client=client,
                 topic=topic,
                 role_a_template=role_a,
-                role_b_template=role_b
+                role_b_template=role_b,
             )
 
-            # 创建会话
             session = Session(
                 session_type="dual_chat",
                 topic=topic,
@@ -267,8 +251,8 @@ def stream_dual_chat(
                     "role_a": role_a,
                     "role_b": role_b,
                     "turns": turns,
-                    "mode": "dual_character"
-                }
+                    "mode": "dual_character",
+                },
             )
             db.add(session)
             db.commit()
@@ -276,11 +260,9 @@ def stream_dual_chat(
 
             yield sse_event({"type": "session", "session_id": session.id})
 
-            # 运行对话
-            for event in dual_chat.run_conversation(turns=turns):
+            async for event in dual_chat.run_conversation(turns=turns):
                 yield sse_event(event, ensure_ascii=False)
 
-                # 保存消息到数据库
                 if event.get("type") == "message_complete":
                     msg = Message(
                         session_id=session.id,
@@ -289,8 +271,8 @@ def stream_dual_chat(
                         meta_info={
                             "role_id": event.get("role_id"),
                             "turn": event.get("turn"),
-                            "mode": "dual_character"
-                        }
+                            "mode": "dual_character",
+                        },
                     )
                     db.add(msg)
 
