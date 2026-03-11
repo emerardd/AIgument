@@ -257,13 +257,13 @@ async def agent_debate(
         settings["preset"] = orchestrator.run_config.get("preset")
         session.settings = settings
         
-        # 收集所有事件
+        # 收集所有事件（复用流式接口）
         events = []
-        async for event in orchestrator.run_debate():
+        async for event in orchestrator.run_debate_streaming():
             events.append(event)
-            
-            # 保存论点消息
-            if event.get("type") == "argument":
+
+            # 保存完整论点消息
+            if event.get("type") == "argument_complete":
                 message = Message(
                     session_id=session.id,
                     role=event.get("name", event.get("side")),
@@ -271,8 +271,8 @@ async def agent_debate(
                     meta_info={
                         "round": event.get("round"),
                         "side": event.get("side"),
-                        "mode": "multi-agent"
-                    }
+                        "mode": "multi-agent",
+                    },
                 )
                 db.add(message)
         
@@ -282,7 +282,7 @@ async def agent_debate(
         db.commit()
         
         # 提取关键信息
-        arguments = [e for e in events if e.get("type") == "argument"]
+        arguments = [e for e in events if e.get("type") == "argument_complete"]
         thinkings = [e for e in events if e.get("type") == "thinking"]
         evaluations = [e for e in events if e.get("type") == "evaluation"]
         verdict = next((e for e in events if e.get("type") == "verdict"), None)

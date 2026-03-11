@@ -260,7 +260,7 @@ class JuryAgent(BaseAgent):
         ]
         
         try:
-            response = self.ai_client.get_completion(messages, temperature=self.temperature)
+            response = await self.ai_client.get_completion(messages, temperature=self.temperature)
             result = self._parse_json_response(response, {
                 "pro_score": {"logic": 5, "evidence": 5, "rhetoric": 5, "rebuttal": 5},
                 "con_score": {"logic": 5, "evidence": 5, "rhetoric": 5, "rebuttal": 5},
@@ -345,7 +345,7 @@ class JuryAgent(BaseAgent):
         ]
         
         try:
-            response = self.ai_client.get_completion(messages, temperature=self.temperature)
+            response = await self.ai_client.get_completion(messages, temperature=self.temperature)
             result = self._parse_json_response(response, {})
             
             # 计算总分

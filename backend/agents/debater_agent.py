@@ -207,7 +207,7 @@ class DebaterAgent(BaseAgent):
         ]
         
         try:
-            response = self.ai_client.get_completion(messages, temperature=self.temperature)
+            response = await self.ai_client.get_completion(messages, temperature=self.temperature)
             analysis = self._parse_json_response(response, {
                 "opponent_weaknesses": [],
                 "selected_strategy": "direct_refute",
@@ -262,8 +262,8 @@ class DebaterAgent(BaseAgent):
         ]
         
         try:
-            response = self.ai_client.get_completion(messages, temperature=self.temperature)
-            
+            response = await self.ai_client.get_completion(messages, temperature=self.temperature)
+
             # 清理响应
             response = response.strip()
             if response.startswith("```"):
@@ -349,7 +349,7 @@ class DebaterAgent(BaseAgent):
         
         full_response = ""
         try:
-            for chunk in self.ai_client.chat_stream(messages, temperature=self.temperature):
+            async for chunk in self.ai_client.chat_stream(messages, temperature=self.temperature):
                 full_response += chunk
                 yield {
                     "type": "argument",
