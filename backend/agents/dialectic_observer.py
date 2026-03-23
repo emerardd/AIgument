@@ -94,7 +94,7 @@ side: "thesis" 或 "antithesis"
             {"role": "user", "content": prompt},
         ]
         try:
-            response = self.ai_client.get_completion(messages, temperature=self.temperature)
+            response = await self.ai_client.get_completion(messages, temperature=self.temperature)
             result = self._parse_json_response(response, {
                 "synthesis": "",
                 "key_tensions": [],
@@ -117,7 +117,7 @@ side: "thesis" 或 "antithesis"
             {"role": "user", "content": prompt},
         ]
         try:
-            response = self.ai_client.get_completion(messages, temperature=0.3)
+            response = await self.ai_client.get_completion(messages, temperature=0.3)
             parsed = self._parse_json_response(response, default=[])
             if isinstance(parsed, list):
                 return parsed

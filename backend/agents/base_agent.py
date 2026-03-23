@@ -165,6 +165,24 @@ class BaseAgent(ABC):
             "source": source,
             "content": observation
         })
+
+    def receive_message(self, message: Any) -> None:
+        """Persist a protocol message and derive lightweight beliefs."""
+        self.message_history.append(message)
+        self.update_belief(
+            "last_received_message",
+            message.to_dict() if hasattr(message, "to_dict") else message,
+        )
+
+        content = getattr(message, "content", None)
+        if isinstance(content, dict):
+            result = content.get("result")
+            if result:
+                self.add_to_memory({
+                    "type": "message",
+                    "source": getattr(message, "sender", "protocol"),
+                    "content": result
+                })
     
     async def react(self, context: Dict[str, Any]) -> tuple[ThinkResult, str]:
         """完整的 ReAct 循环

@@ -51,6 +51,27 @@ class SocraticQAService:
         self.current_topic: str = ""
         self.understanding_level: int = 0
 
+    def restore_history(self, history: List[Dict[str, str]]) -> None:
+        """Restore conversation history from persisted messages."""
+        self.conversation_history = []
+        for msg in history:
+            role = msg.get("role", "user")
+            content = msg.get("content", "") or ""
+            if role == "assistant":
+                parsed = self._parse_json_response(content, {})
+                if parsed:
+                    candidate_lines = [
+                        parsed.get("opening_remark") or parsed.get("opening") or "",
+                        *(parsed.get("guiding_questions") or parsed.get("questions") or []),
+                        parsed.get("content") or "",
+                    ]
+                    content = "\n".join([line for line in candidate_lines if line]).strip() or content
+            self.conversation_history.append({"role": role, "content": content[:500]})
+
+        user_messages = [m["content"] for m in self.conversation_history if m["role"] == "user"]
+        if user_messages:
+            self.current_topic = user_messages[0][:100]
+
     def _build_socratic_prompt(self, question: str) -> str:
         history_context = ""
         if self.conversation_history:

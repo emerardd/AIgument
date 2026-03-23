@@ -1,14 +1,16 @@
 interface StreamSSEOptions<TEvent> {
     url: string
     onEvent: (event: TEvent) => void
+    signal?: AbortSignal
 }
 
-export async function streamSSE<TEvent>({ url, onEvent }: StreamSSEOptions<TEvent>): Promise<void> {
+export async function streamSSE<TEvent>({ url, onEvent, signal }: StreamSSEOptions<TEvent>): Promise<void> {
     const response = await fetch(url, {
         method: 'GET',
         headers: {
             Accept: 'text/event-stream',
         },
+        signal,
     })
 
     if (!response.ok) {

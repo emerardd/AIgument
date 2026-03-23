@@ -2,6 +2,7 @@ import { useSettingsStore, type Provider } from '@/stores/settingsStore'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { modelPresets } from '@/config/modelPresets'
 import { Settings, Cpu, Zap, Server, Check, Moon, Sun, Sliders, Sparkles } from 'lucide-react'
 
 const providerOptions: { value: Provider; label: string; description: string }[] = [
@@ -10,13 +11,6 @@ const providerOptions: { value: Provider; label: string; description: string }[]
     { value: 'gemini', label: 'Google Gemini', description: 'Google 最新 AI 模型' },
     { value: 'claude', label: 'Anthropic Claude', description: '安全可靠的 AI 助手' },
 ]
-
-const modelPresets: Record<Provider, string[]> = {
-    deepseek: ['deepseek-chat', 'deepseek-reasoner'],
-    openai: ['gpt-5.2', 'gpt-5-mini', 'gpt-5-nano', 'gpt-5.2-pro', 'gpt-5', 'gpt-4.1'],
-    gemini: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-flash-preview', 'gemini-3.1-pro-preview'],
-    claude: ['claude-opus-4.6', 'claude-sonnet-4.6'],
-}
 
 export default function SettingsPage() {
     const {

@@ -3,6 +3,7 @@ import type {
     DialecticTree,
     FallacyItem,
 } from '@/types'
+import { createSessionState } from './sessionStore'
 
 export interface DialecticMessage {
     round: number
@@ -45,10 +46,7 @@ export const useDialecticStore = create<DialecticState>((set) => ({
     sessionId: null,
     rounds: 5,
     currentRound: 0,
-    isLoading: false,
-    error: null,
-
-    messages: [],
+    ...createSessionState<DialecticMessage>(),
     fallaciesByRound: {},
     tree: null,
 

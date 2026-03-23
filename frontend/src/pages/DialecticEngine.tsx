@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useDialecticStore } from '@/stores/dialecticStore'
@@ -13,6 +13,7 @@ export default function DialecticEngine() {
     const [inputTopic, setInputTopic] = useState('')
     const [rounds, setRounds] = useState(5)
     const bottomRef = useRef<HTMLDivElement>(null)
+    const abortRef = useRef<AbortController | null>(null)
 
     const {
         messages,
@@ -39,6 +40,10 @@ export default function DialecticEngine() {
 
     const { defaultProvider, defaultModel } = useSettingsStore()
 
+    useEffect(() => {
+        return () => abortRef.current?.abort()
+    }, [])
+
     const scrollToBottom = useCallback(() => {
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
     }, [])
@@ -47,6 +52,8 @@ export default function DialecticEngine() {
         if (!inputTopic.trim()) return
 
         clear()
+        abortRef.current?.abort()
+        abortRef.current = new AbortController()
         setLoading(true)
         setError(null)
         setTopic(inputTopic)
@@ -112,7 +119,8 @@ export default function DialecticEngine() {
             (err) => {
                 setError(err.message)
                 setLoading(false)
-            }
+            },
+            abortRef.current.signal
         )
     }
 

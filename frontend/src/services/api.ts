@@ -37,14 +37,19 @@ async function streamWithParams<TEvent>(
     path: string,
     params: URLSearchParams,
     onEvent: (event: TEvent) => void,
-    onError: (error: Error) => void
+    onError: (error: Error) => void,
+    signal?: AbortSignal
 ): Promise<void> {
     try {
         await streamSSE<TEvent>({
             url: `${API_BASE_URL}${path}?${params.toString()}`,
             onEvent,
+            signal,
         })
     } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+            return
+        }
         onError(error instanceof Error ? error : new Error('Unknown error'))
     }
 }
@@ -75,13 +80,15 @@ export const debateAPI = {
     streamDebate: async (
         settings: DebateSettings,
         onEvent: (event: StreamEvent) => void,
-        onError: (error: Error) => void
+        onError: (error: Error) => void,
+        signal?: AbortSignal
     ) => {
         await streamWithParams<StreamEvent>(
             '/api/debate/stream',
             buildStreamParams(settings),
             onEvent,
-            onError
+            onError,
+            signal
         )
     },
 
@@ -94,13 +101,15 @@ export const debateAPI = {
     streamAgentDebate: async (
         settings: DebateSettings,
         onEvent: (event: AgentStreamEvent) => void,
-        onError: (error: Error) => void
+        onError: (error: Error) => void,
+        signal?: AbortSignal
     ) => {
         await streamWithParams<AgentStreamEvent>(
             '/api/debate/agent-stream',
             buildStreamParams(settings),
             onEvent,
-            onError
+            onError,
+            signal
         )
     },
 }
@@ -111,13 +120,15 @@ export const dialecticAPI = {
     streamDialectic: async (
         settings: DebateSettings,
         onEvent: (event: DialecticStreamEvent) => void,
-        onError: (error: Error) => void
+        onError: (error: Error) => void,
+        signal?: AbortSignal
     ) => {
         await streamWithParams<DialecticStreamEvent>(
             '/api/dialectic/stream',
             buildStreamParams(settings),
             onEvent,
-            onError
+            onError,
+            signal
         )
     },
 }

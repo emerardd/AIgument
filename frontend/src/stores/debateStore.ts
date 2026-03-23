@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { DebateMessage } from '@/types'
+import { createSessionState } from './sessionStore'
 
 interface DebateState {
     messages: DebateMessage[]
@@ -15,9 +16,7 @@ interface DebateState {
 }
 
 export const useDebateStore = create<DebateState>((set) => ({
-    messages: [],
-    isLoading: false,
-    error: null,
+    ...createSessionState<DebateMessage>(),
     topic: '',
 
     addMessage: (message) => set((state) => ({

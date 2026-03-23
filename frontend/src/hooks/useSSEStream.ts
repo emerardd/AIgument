@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
+import { streamSSE } from '@/utils/sse'
 
 interface SSEStreamState {
     isStreaming: boolean
@@ -44,44 +45,7 @@ export function useSSEStream(): UseSSEStreamReturn {
         setState({ isStreaming: true, error: null })
 
         try {
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: { Accept: 'text/event-stream' },
-                signal: controller.signal,
-            })
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`)
-            }
-
-            const reader = response.body?.getReader()
-            if (!reader) throw new Error('No response body')
-
-            const decoder = new TextDecoder()
-            let buffer = ''
-
-            while (true) {
-                const { done, value } = await reader.read()
-                if (done) break
-
-                buffer += decoder.decode(value, { stream: true })
-                const lines = buffer.split('\n')
-                buffer = lines.pop() ?? ''
-
-                for (const rawLine of lines) {
-                    const line = rawLine.trim()
-                    if (!line.startsWith('data:')) continue
-
-                    const payload = line.slice(5).trim()
-                    if (!payload || payload === '[DONE]') continue
-
-                    try {
-                        onEvent(JSON.parse(payload))
-                    } catch {
-                        console.error('Failed to parse SSE data:', payload)
-                    }
-                }
-            }
+            await streamSSE({ url, onEvent, signal: controller.signal })
 
             setState({ isStreaming: false, error: null })
         } catch (err) {

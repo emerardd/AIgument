@@ -32,6 +32,7 @@ export function SocraticQAView() {
     const [error, setError] = useState<string | null>(null)
     const [history, setHistory] = useState<Array<{ role: string; content: string }>>([])
     const responseRef = useRef<HTMLDivElement>(null)
+    const abortRef = useRef<AbortController | null>(null)
 
     // 获取可用模式
     useEffect(() => {
@@ -39,6 +40,10 @@ export function SocraticQAView() {
             .then(res => res.json())
             .then(data => setModes(data.modes || []))
             .catch(err => console.error('Failed to fetch modes:', err))
+    }, [])
+
+    useEffect(() => {
+        return () => abortRef.current?.abort()
     }, [])
 
     // 自动滚动
@@ -55,6 +60,8 @@ export function SocraticQAView() {
         setIsLoading(true)
         setResponse('')
         setError(null)
+        abortRef.current?.abort()
+        abortRef.current = new AbortController()
 
         try {
             const historyParam = JSON.stringify(history)
@@ -67,6 +74,7 @@ export function SocraticQAView() {
 
             await streamSSE<SocraticQAStreamEvent>({
                 url: `${API_BASE_URL}/api/qa/socratic-stream?${params.toString()}`,
+                signal: abortRef.current.signal,
                 onEvent: (data) => {
                     if (data.type === 'content' && data.content !== undefined) {
                         setResponse(data.content)
@@ -89,6 +97,9 @@ export function SocraticQAView() {
             }
 
         } catch (err) {
+            if (err instanceof Error && err.name === 'AbortError') {
+                return
+            }
             setError(err instanceof Error ? err.message : 'Unknown error')
         } finally {
             setIsLoading(false)

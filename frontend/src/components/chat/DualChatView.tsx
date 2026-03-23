@@ -43,6 +43,7 @@ export function DualChatView() {
     const [openDropdown, setOpenDropdown] = useState<'a' | 'b' | null>(null)
     const dropdownRefA = useRef<HTMLDivElement>(null)
     const dropdownRefB = useRef<HTMLDivElement>(null)
+    const abortRef = useRef<AbortController | null>(null)
 
     // 点击外部关闭下拉
     useEffect(() => {
@@ -54,6 +55,10 @@ export function DualChatView() {
         }
         document.addEventListener('mousedown', handleClickOutside)
         return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [])
+
+    useEffect(() => {
+        return () => abortRef.current?.abort()
     }, [])
 
     // 获取可用角色
@@ -85,6 +90,8 @@ export function DualChatView() {
         setIsRunning(true)
         setMessages([])
         setError(null)
+        abortRef.current?.abort()
+        abortRef.current = new AbortController()
 
         try {
             const params = new URLSearchParams({
@@ -97,8 +104,12 @@ export function DualChatView() {
             await streamSSE<DualChatStreamEvent>({
                 url: `${API_BASE_URL}/api/chat/dual-stream?${params.toString()}`,
                 onEvent: handleEvent,
+                signal: abortRef.current.signal,
             })
         } catch (err) {
+            if (err instanceof Error && err.name === 'AbortError') {
+                return
+            }
             setError(err instanceof Error ? err.message : 'Unknown error')
         } finally {
             setIsRunning(false)

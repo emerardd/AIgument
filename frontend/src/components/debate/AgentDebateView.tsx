@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer'
@@ -16,14 +16,8 @@ import {
 } from 'lucide-react'
 import type { Provider } from '@/stores/settingsStore'
 import { presetTopics } from '@/config/presetTopics'
+import { modelPresets } from '@/config/modelPresets'
 import { exportDebateMarkdown } from '@/utils/exportUtils'
-
-const modelPresets: Record<Provider, string[]> = {
-    deepseek: ['deepseek-chat', 'deepseek-reasoner'],
-    openai: ['gpt-5.2', 'gpt-5-mini', 'gpt-5-nano', 'gpt-5.2-pro', 'gpt-5', 'gpt-4.1'],
-    gemini: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-flash-preview', 'gemini-3.1-pro-preview'],
-    claude: ['claude-opus-4.6', 'claude-sonnet-4.6'],
-}
 
 export function AgentDebateView() {
     const [inputTopic, setInputTopic] = useState('')
@@ -35,6 +29,7 @@ export function AgentDebateView() {
     const [conModel, setConModel] = useState('gpt-5-mini')
     const [showTopics, setShowTopics] = useState(false)
     const messagesEndRef = useRef<HTMLDivElement>(null)
+    const abortRef = useRef<AbortController | null>(null)
 
     const {
         messages,
@@ -67,6 +62,10 @@ export function AgentDebateView() {
 
     const { defaultProvider, defaultModel } = useSettingsStore()
 
+    useEffect(() => {
+        return () => abortRef.current?.abort()
+    }, [])
+
     const scrollToBottom = useCallback(() => {
         setTimeout(() => {
             messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -77,6 +76,8 @@ export function AgentDebateView() {
         if (!inputTopic.trim()) return
 
         clear()
+        abortRef.current?.abort()
+        abortRef.current = new AbortController()
         setLoading(true)
         setError(null)
         setTopic(inputTopic)
@@ -211,7 +212,8 @@ export function AgentDebateView() {
             (err) => {
                 setError(err.message)
                 setLoading(false)
-            }
+            },
+            abortRef.current.signal
         )
     }
 

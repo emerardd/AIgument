@@ -407,7 +407,7 @@ class ArgumentAnalyzer:
 ["核心观点1", "核心观点2", "核心观点3"]
 """
         messages = [{"role": "user", "content": prompt}]
-        response = self.ai_client.get_completion(messages, temperature=0.3)
+        response = await self.ai_client.get_completion(messages, temperature=0.3)
         
         try:
             import json
@@ -447,7 +447,7 @@ class ArgumentAnalyzer:
 ```
 """
         messages = [{"role": "user", "content": prompt}]
-        response = self.ai_client.get_completion(messages, temperature=0.3)
+        response = await self.ai_client.get_completion(messages, temperature=0.3)
         
         try:
             import json

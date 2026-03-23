@@ -76,6 +76,7 @@ class DebaterAgent(BaseAgent):
         debate_history = context.get("history", [])
         round_num = context.get("round", 1)
         is_opening = context.get("is_opening", False)
+        latest_jury_feedback = self.get_belief("latest_evaluation_commentary", "")
         
         if is_opening:
             return f"""你是一个专业辩论选手，代表{self.position_label}。
@@ -99,12 +100,15 @@ class DebaterAgent(BaseAgent):
 ```"""
         
         # 历史摘要
-        history_summary = ""
+        history_parts = []
+        if latest_jury_feedback:
+            history_parts.append(f"评审反馈: {latest_jury_feedback}")
         if debate_history:
-            history_summary = "\n".join([
+            history_parts.extend([
                 f"第{h.get('round', '?')}轮 - {h.get('side', '?')}: {h.get('content', '')[:100]}..."
                 for h in debate_history[-4:]  # 最近4条
             ])
+        history_summary = "\n".join(history_parts)
         
         return f"""你是一个专业辩论选手，代表{self.position_label}。
 
@@ -237,7 +241,12 @@ class DebaterAgent(BaseAgent):
             logger.exception("DebaterAgent 思考过程出错")
             return ThinkResult(
                 reasoning=f"分析失败: {str(e)}",
-                analysis={},
+                analysis={
+                    "opponent_weaknesses": [],
+                    "selected_strategy": "direct_refute",
+                    "counter_points": [],
+                    "fallback_error": str(e),
+                },
                 next_action="generate_argument",
                 confidence=0.3
             )

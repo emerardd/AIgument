@@ -1,28 +1,20 @@
 """
-AI 客户端封装 - 支持多提供商
-
-统一的 AI 调用入口，通过 Provider 策略模式支持：
-- DeepSeek / OpenAI（OpenAI 兼容接口）
-- Google Gemini
-- Anthropic Claude
-- Mock（测试用）
-
-所有 IO 操作均为异步，避免阻塞 FastAPI 事件循环。
+Unified async AI client with lightweight retries.
 """
+
+import asyncio
 from typing import AsyncGenerator, Optional
 
+from exceptions import AIClientException
 from services.providers import BaseProvider, create_provider
+from utils.logger import get_logger
+
+
+logger = get_logger(__name__)
 
 
 class AIClient:
-    """统一的 AI 客户端，委托给具体 Provider 实现。
-
-    用法：
-        client = AIClient(provider="deepseek", model="deepseek-chat", api_key=...)
-        text = await client.get_completion(messages)
-        async for chunk in client.chat_stream(messages):
-            ...
-    """
+    """Provider-agnostic async AI client."""
 
     def __init__(
         self,
@@ -30,10 +22,14 @@ class AIClient:
         model: str = "deepseek-chat",
         api_key: Optional[str] = None,
         seed: Optional[int] = None,
+        retry_attempts: int = 2,
+        retry_delay: float = 0.5,
     ):
         self.provider = provider
         self.model = model
         self.seed = seed
+        self.retry_attempts = max(1, retry_attempts)
+        self.retry_delay = max(0.0, retry_delay)
         self._provider: BaseProvider = create_provider(
             provider=provider,
             model=model,
@@ -48,10 +44,33 @@ class AIClient:
         max_tokens: int = 2000,
         **kwargs,
     ) -> str:
-        """获取完整回复（非流式）"""
-        return await self._provider.get_completion(
-            messages, temperature=temperature, max_tokens=max_tokens, **kwargs
-        )
+        """Get a full completion with small bounded retries."""
+        last_error: Exception | None = None
+
+        for attempt in range(1, self.retry_attempts + 1):
+            try:
+                return await self._provider.get_completion(
+                    messages, temperature=temperature, max_tokens=max_tokens, **kwargs
+                )
+            except Exception as exc:
+                last_error = exc
+                if attempt >= self.retry_attempts:
+                    break
+                logger.warning(
+                    "AI completion failed (%s/%s) for %s/%s: %s",
+                    attempt,
+                    self.retry_attempts,
+                    self.provider,
+                    self.model,
+                    exc,
+                )
+                await asyncio.sleep(self.retry_delay * attempt)
+
+        raise AIClientException(
+            f"Completion failed after {self.retry_attempts} attempts: {last_error}",
+            provider=self.provider,
+            model=self.model,
+        ) from last_error
 
     async def chat_stream(
         self,
@@ -60,8 +79,15 @@ class AIClient:
         max_tokens: int = 2000,
         **kwargs,
     ) -> AsyncGenerator[str, None]:
-        """流式获取回复（异步生成器）"""
-        async for chunk in self._provider.chat_stream(
-            messages, temperature=temperature, max_tokens=max_tokens, **kwargs
-        ):
-            yield chunk
+        """Stream a completion and normalize provider errors."""
+        try:
+            async for chunk in self._provider.chat_stream(
+                messages, temperature=temperature, max_tokens=max_tokens, **kwargs
+            ):
+                yield chunk
+        except Exception as exc:
+            raise AIClientException(
+                f"Streaming failed: {exc}",
+                provider=self.provider,
+                model=self.model,
+            ) from exc

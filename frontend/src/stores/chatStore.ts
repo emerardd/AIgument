@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { ChatMessage } from '@/types'
+import { createSessionState } from './sessionStore'
 
 interface ChatState {
     messages: ChatMessage[]
@@ -15,9 +16,7 @@ interface ChatState {
 }
 
 export const useChatStore = create<ChatState>((set) => ({
-    messages: [],
-    isLoading: false,
-    error: null,
+    ...createSessionState<ChatMessage>(),
 
     addMessage: (message) => set((state) => ({
         messages: [...state.messages, message]

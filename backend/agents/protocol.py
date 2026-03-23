@@ -335,6 +335,7 @@ class MessageBus:
         如果有接收者，发送给特定 Agent
         否则广播给所有订阅者
         """
+        ProtocolValidator.validate_and_raise(message)
         self.messages.append(message)
         
         # 类型处理器

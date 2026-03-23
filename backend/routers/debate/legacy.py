@@ -98,7 +98,7 @@ async def debate(request: DebateRequest, db: DBSession = Depends(get_db)):
         for round_num in range(1, total_rounds + 1):
             # 正方发言
             pro_input = opening if round_num == 1 else messages[-1]["content"]
-            pro_response = pro_debater.generate_response(pro_input)
+            pro_response = await pro_debater.generate_response(pro_input)
             
             pro_msg = Message(
                 session_id=session.id,
@@ -110,7 +110,7 @@ async def debate(request: DebateRequest, db: DBSession = Depends(get_db)):
             messages.append({"role": "正方", "content": pro_response, "round": round_num})
             
             # 反方发言
-            con_response = con_debater.generate_response(pro_response)
+            con_response = await con_debater.generate_response(pro_response)
             
             con_msg = Message(
                 session_id=session.id,
@@ -133,7 +133,7 @@ async def debate(request: DebateRequest, db: DBSession = Depends(get_db)):
 
 
 @router.get("/debate/stream")
-def stream_debate(
+async def stream_debate(
     topic: str,
     rounds: int = 3,
     provider: str = "deepseek",
@@ -145,7 +145,7 @@ def stream_debate(
 ):
     """流式辩论接口"""
     
-    def generate():
+    async def generate():
         try:
             api_key = get_api_key(provider)
             preset_config = RUN_CONFIG_PRESETS.get(preset, {}) if preset else {}
@@ -190,7 +190,7 @@ def stream_debate(
                 pro_input = opening if round_num == 1 else last_response
                 pro_full = ""
                 
-                for chunk in pro_debater.stream_response(pro_input):
+                async for chunk in pro_debater.stream_response(pro_input):
                     pro_full += chunk
                     yield sse_event({
                         "type": "content",
@@ -211,7 +211,7 @@ def stream_debate(
                 
                 # 反方发言
                 con_full = ""
-                for chunk in con_debater.stream_response(pro_full):
+                async for chunk in con_debater.stream_response(pro_full):
                     con_full += chunk
                     yield sse_event({
                         "type": "content",

@@ -76,7 +76,7 @@ class DialecticThesisAgent(BaseAgent):
         ]
 
         try:
-            response = self.ai_client.get_completion(messages, temperature=self.temperature)
+            response = await self.ai_client.get_completion(messages, temperature=self.temperature)
             analysis = self._parse_json_response(response, {
                 "core_thesis": thesis,
                 "supporting_points": [],
@@ -109,7 +109,7 @@ class DialecticThesisAgent(BaseAgent):
             {"role": "user", "content": prompt},
         ]
         try:
-            response = self.ai_client.get_completion(messages, temperature=self.temperature)
+            response = await self.ai_client.get_completion(messages, temperature=self.temperature)
             return response.strip()
         except Exception as e:
             return f"[正题生成失败: {str(e)}]"
@@ -178,7 +178,7 @@ class DialecticAntithesisAgent(BaseAgent):
         ]
 
         try:
-            response = self.ai_client.get_completion(messages, temperature=self.temperature)
+            response = await self.ai_client.get_completion(messages, temperature=self.temperature)
             analysis = self._parse_json_response(response, {
                 "antithesis": "",
                 "attack_points": [],
@@ -210,7 +210,7 @@ class DialecticAntithesisAgent(BaseAgent):
             {"role": "user", "content": prompt},
         ]
         try:
-            response = self.ai_client.get_completion(messages, temperature=self.temperature)
+            response = await self.ai_client.get_completion(messages, temperature=self.temperature)
             return response.strip()
         except Exception as e:
             return f"[反题生成失败: {str(e)}]"

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer'
@@ -13,10 +13,15 @@ export function DebateView() {
     const [inputTopic, setInputTopic] = useState('')
     const [rounds, setRounds] = useState(3)
     const messagesEndRef = useRef<HTMLDivElement>(null)
+    const abortRef = useRef<AbortController | null>(null)
 
     const { messages, isLoading, error, addMessage, updateMessage, setLoading, setError, setTopic, clear } =
         useDebateStore()
     const { defaultProvider, defaultModel, streamMode } = useSettingsStore()
+
+    useEffect(() => {
+        return () => abortRef.current?.abort()
+    }, [])
 
     const scrollToBottom = () => {
         setTimeout(() => {
@@ -28,6 +33,8 @@ export function DebateView() {
         if (!inputTopic.trim()) return
 
         clear()
+        abortRef.current?.abort()
+        abortRef.current = new AbortController()
         setLoading(true)
         setError(null)
         setTopic(inputTopic)
@@ -72,7 +79,8 @@ export function DebateView() {
                 (err) => {
                     setError(err.message)
                     setLoading(false)
-                }
+                },
+                abortRef.current.signal
             )
         } else {
             try {

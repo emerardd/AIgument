@@ -6,6 +6,7 @@ import type {
     FinalVerdict,
     DebateStandings
 } from '@/types'
+import { createSessionState } from './sessionStore'
 
 // 扩展消息类型，包含思考过程
 export interface AgentDebateMessage extends DebateMessage {
@@ -55,9 +56,7 @@ interface AgentDebateState {
 
 export const useAgentDebateStore = create<AgentDebateState>((set) => ({
     // 初始状态
-    messages: [],
-    isLoading: false,
-    error: null,
+    ...createSessionState<AgentDebateMessage>(),
     topic: '',
     sessionId: null,
 

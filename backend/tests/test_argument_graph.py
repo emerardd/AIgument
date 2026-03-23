@@ -3,12 +3,14 @@ ArgumentGraph 测试
 
 覆盖图分析算法：add_argument, add_relation, get_unaddressed, strongest, attack_chains, mermaid
 """
+import asyncio
 import pytest
 import sys
 import os
+from unittest.mock import AsyncMock
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from memory.argument_graph import ArgumentGraph, RelationType
+from memory.argument_graph import ArgumentAnalyzer, ArgumentGraph, RelationType
 
 
 class TestArgumentGraph:
@@ -97,3 +99,28 @@ class TestArgumentGraph:
         d = g.to_dict()
         assert "nodes" in d or "arguments" in d
         assert "edges" in d or "relations" in d
+
+
+class TestArgumentAnalyzer:
+    def test_extract_key_points_awaits_ai_client(self):
+        ai_client = AsyncMock()
+        ai_client.get_completion = AsyncMock(return_value='["观点1", "观点2"]')
+
+        analyzer = ArgumentAnalyzer(ai_client)
+        result = asyncio.run(analyzer.extract_key_points("测试论点"))
+
+        assert result == ["观点1", "观点2"]
+        ai_client.get_completion.assert_awaited_once()
+
+    def test_analyze_relation_awaits_ai_client(self):
+        ai_client = AsyncMock()
+        ai_client.get_completion = AsyncMock(
+            return_value='{"has_relation": true, "relation_type": "attacks", "strength": 0.8, "description": "直接反驳"}'
+        )
+
+        analyzer = ArgumentAnalyzer(ai_client)
+        result = asyncio.run(analyzer.analyze_relation("A", "B", "pro", "con"))
+
+        assert result is not None
+        assert result["relation_type"] == "attacks"
+        ai_client.get_completion.assert_awaited_once()

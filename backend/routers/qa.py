@@ -324,11 +324,13 @@ async def stream_socratic_qa(
             qa_service = create_socratic_qa(client, mode=mode)
 
             history_list = _parse_history(history)
-            for msg in history_list:
-                qa_service.conversation_history.append({
+            qa_service.restore_history([
+                {
                     "role": msg.get("role", "user"),
                     "content": msg.get("content", ""),
-                })
+                }
+                for msg in history_list
+            ])
 
             session = _get_or_create_session(
                 db=db,
@@ -400,11 +402,13 @@ async def qa_follow_up(
 
         # 创建服务并恢复历史
         qa_service = create_socratic_qa(client, mode="socratic")
-        for msg in messages:
-            qa_service.conversation_history.append({
+        qa_service.restore_history([
+            {
                 "role": msg.role,
                 "content": msg.content[:500] if msg.content else ""
-            })
+            }
+            for msg in messages
+        ])
 
         # 处理用户回复
         result = await qa_service.follow_up(response)
