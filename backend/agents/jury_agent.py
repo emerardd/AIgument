@@ -15,13 +15,13 @@ logger = get_logger(__name__)
 
 
 class RoundScore(BaseModel):
-    logic: int = Field(ge=0, le=10)
-    evidence: int = Field(ge=0, le=10)
-    rhetoric: int = Field(ge=0, le=10)
-    rebuttal: int = Field(ge=0, le=10)
+    logic: float = Field(ge=0, le=10)
+    evidence: float = Field(ge=0, le=10)
+    rhetoric: float = Field(ge=0, le=10)
+    rebuttal: float = Field(ge=0, le=10)
 
     @property
-    def total(self) -> int:
+    def total(self) -> float:
         return self.logic + self.evidence + self.rhetoric + self.rebuttal
 
     @property
@@ -43,8 +43,8 @@ class RoundEvaluation(BaseModel):
 
 class FinalVerdict(BaseModel):
     winner: str
-    pro_total_score: int
-    con_total_score: int
+    pro_total_score: float
+    con_total_score: float
     margin: str
     summary: str
     pro_strengths: List[str]

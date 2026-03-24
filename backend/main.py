@@ -1,14 +1,15 @@
 """
 FastAPI 应用主入口
 """
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import os
 import sys
 import time
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse
 
 # 添加当前目录到路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -20,6 +21,7 @@ from routers import chat, qa, history, evaluation
 from routers import dialectic
 from routers import analysis
 from exceptions import AIgumentException
+from runtime import get_frontend_dist_dir, is_frozen
 from utils.logger import get_logger
 
 settings = get_settings()
@@ -110,9 +112,39 @@ app.include_router(dialectic.router, prefix="/api", tags=["dialectic"])
 app.include_router(analysis.router)
 
 
+@app.get("/health")
+async def health_check():
+    """健康检查"""
+    return {"status": "healthy"}
+
+
+frontend_dist_dir = get_frontend_dist_dir()
+frontend_index_file = frontend_dist_dir / "index.html"
+frontend_assets_dir = frontend_dist_dir / "assets"
+frontend_dist_root = frontend_dist_dir.resolve()
+
+
+def resolve_frontend_asset(full_path: str):
+    """Resolve a frontend asset path without allowing directory traversal."""
+    if not full_path:
+        return None
+
+    candidate = (frontend_dist_root / full_path).resolve()
+    try:
+        candidate.relative_to(frontend_dist_root)
+    except ValueError:
+        return None
+
+    if candidate.exists() and candidate.is_file():
+        return candidate
+    return None
+
+
 @app.get("/")
 async def root():
     """根路由"""
+    if frontend_index_file.exists():
+        return FileResponse(frontend_index_file)
     return {
         "message": "Welcome to AIgument API",
         "version": "2.1.0",
@@ -121,24 +153,38 @@ async def root():
     }
 
 
-@app.get("/health")
-async def health_check():
-    """健康检查"""
-    return {"status": "healthy"}
+if frontend_assets_dir.exists():
+    app.mount("/assets", StaticFiles(directory=frontend_assets_dir), name="assets")
 
 
-# 静态文件服务（如果有前端构建产物）
-static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src", "static", "dist")
-if os.path.exists(static_dir):
-    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+@app.get("/{full_path:path}")
+async def spa_fallback(full_path: str):
+    """Serve built frontend files and fall back to index.html for SPA routes."""
+    if full_path.startswith(("api/", "docs", "redoc", "openapi.json", "health")):
+        return JSONResponse(
+            status_code=404,
+            content={"error": "NOT_FOUND", "message": "Not found", "details": {}}
+        )
+
+    candidate = resolve_frontend_asset(full_path)
+    if candidate is not None:
+        return FileResponse(candidate)
+
+    if frontend_index_file.exists():
+        return FileResponse(frontend_index_file)
+
+    return JSONResponse(
+        status_code=404,
+        content={"error": "FRONTEND_NOT_BUILT", "message": "Frontend build not found", "details": {}}
+    )
 
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=5000,
-        reload=True
+        app,
+        host=os.getenv("AIGUMENT_HOST", "127.0.0.1"),
+        port=int(os.getenv("AIGUMENT_PORT", "5000")),
+        reload=not is_frozen() and os.getenv("AIGUMENT_RELOAD", "0") == "1"
     )
 

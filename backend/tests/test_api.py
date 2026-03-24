@@ -4,6 +4,7 @@ API 路由测试
 import pytest
 import sys
 import os
+from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
@@ -20,10 +21,16 @@ class TestHealthCheck:
         """测试根路由"""
         response = client.get("/")
         assert response.status_code == 200
-        data = response.json()
-        assert "message" in data
-        assert "version" in data
-        assert "AIgument" in data["message"]
+        frontend_index = Path(__file__).resolve().parents[2] / "src" / "static" / "dist" / "index.html"
+
+        if frontend_index.exists():
+            assert "text/html" in response.headers["content-type"]
+            assert "<div id=\"root\"></div>" in response.text
+        else:
+            data = response.json()
+            assert "message" in data
+            assert "version" in data
+            assert "AIgument" in data["message"]
 
 
 class TestHistoryAPI:

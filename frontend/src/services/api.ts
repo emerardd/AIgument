@@ -8,7 +8,7 @@ import type {
     SessionType,
     StreamEvent,
 } from '@/types'
-import { API_BASE_URL } from '@/config/env'
+import { API_BASE_URL, buildApiUrl } from '@/config/env'
 import { streamSSE } from '@/utils/sse'
 
 const api = axios.create({
@@ -42,7 +42,7 @@ async function streamWithParams<TEvent>(
 ): Promise<void> {
     try {
         await streamSSE<TEvent>({
-            url: `${API_BASE_URL}${path}?${params.toString()}`,
+            url: `${buildApiUrl(path)}?${params.toString()}`,
             onEvent,
             signal,
         })

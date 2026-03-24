@@ -1,10 +1,10 @@
-import { API_BASE_URL } from '@/config/env'
+import { buildApiUrl } from '@/config/env'
 
 type ExportFormat = 'md' | 'json'
 
 export async function downloadSessionExport(sessionId: number, format: ExportFormat): Promise<void> {
     const exportFormat = format === 'md' ? 'markdown' : 'json'
-    const response = await fetch(`${API_BASE_URL}/api/history/${sessionId}/export?format=${exportFormat}`)
+    const response = await fetch(buildApiUrl(`/api/history/${sessionId}/export?format=${exportFormat}`))
 
     if (!response.ok) {
         throw new Error(`Export failed with status ${response.status}`)

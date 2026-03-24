@@ -1,0 +1,57 @@
+{
+  "name": "aigument-desktop",
+  "version": "2.1.0",
+  "private": true,
+  "description": "AIgument desktop packaging workspace",
+  "main": "desktop/main.js",
+  "scripts": {
+    "desktop:dev": "electron .",
+    "build:frontend": "npm --prefix frontend run build",
+    "build:backend": "powershell -ExecutionPolicy Bypass -File scripts/build-backend.ps1",
+    "build:desktop": "electron-builder --win nsis",
+    "package:win": "npm run build:frontend && npm run build:backend && npm run build:desktop"
+  },
+  "devDependencies": {
+    "electron": "^36.3.2",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.aigument.desktop",
+    "productName": "AIgument",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "desktop/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "dist/backend/AIgumentBackend",
+        "to": "backend"
+      },
+      {
+        "from": "src/static/dist",
+        "to": "frontend_dist"
+      },
+      {
+        "from": "backend/.env.example",
+        "to": "backend/.env.example"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

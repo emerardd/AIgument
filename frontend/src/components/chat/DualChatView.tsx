@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Users, Play, MessageCircle, Sparkles, RefreshCw, ChevronDown, Check } from 'lucide-react'
-import { API_BASE_URL } from '@/config/env'
+import { buildApiUrl } from '@/config/env'
 import { streamSSE } from '@/utils/sse'
 
 interface Role {
@@ -64,7 +64,7 @@ export function DualChatView() {
     // 获取可用角色
     useEffect(() => {
         setRolesLoading(true)
-        fetch(`${API_BASE_URL}/api/chat/roles`)
+        fetch(buildApiUrl('/api/chat/roles'))
             .then(res => res.json())
             .then(data => {
                 setRoles(data.roles || [])
@@ -102,7 +102,7 @@ export function DualChatView() {
             })
 
             await streamSSE<DualChatStreamEvent>({
-                url: `${API_BASE_URL}/api/chat/dual-stream?${params.toString()}`,
+                url: `${buildApiUrl('/api/chat/dual-stream')}?${params.toString()}`,
                 onEvent: handleEvent,
                 signal: abortRef.current.signal,
             })

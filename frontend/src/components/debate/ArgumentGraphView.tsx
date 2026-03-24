@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Network, GitBranch, Target, Trophy, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react'
 import { MermaidRenderer } from '@/components/ui/MermaidRenderer'
+import { buildApiUrl } from '@/config/env'
 
 interface ArgumentNode {
     id: string
@@ -66,9 +67,7 @@ export function ArgumentGraphView({ sessionId }: ArgumentGraphViewProps) {
         const fetchGraph = async () => {
             try {
                 setLoading(true)
-                const response = await fetch(
-                    `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/debate/${sessionId}/graph`
-                )
+                const response = await fetch(buildApiUrl(`/api/debate/${sessionId}/graph`))
                 if (!response.ok) {
                     throw new Error('Failed to fetch graph')
                 }

@@ -197,6 +197,91 @@ pnpm dev --host
 - **前端界面**：http://localhost:3000
 - **API 文档**：http://localhost:5000/docs
 
+## 📦 打包成 Windows 可执行软件
+
+项目已经接入了桌面打包链路，方案是：
+
+- 前端先构建为静态资源
+- FastAPI 后端用 PyInstaller 打包成 `AIgumentBackend.exe`
+- Electron 启动本地后端，再加载本地页面
+- 最终通过 `electron-builder` 产出安装包
+
+### 打包前提
+
+需要先准备：
+
+- Node.js（建议 20+，并确保 `node`、`npm` 可在终端直接使用）
+- Python 3.12+（项目内可直接使用 `backend\\venv\\Scripts\\python.exe`）
+- 前端依赖已安装：`frontend\\node_modules`
+- 根目录桌面依赖已安装：执行 `npm install`
+- 后端打包依赖已安装：`backend\\venv\\Scripts\\python.exe -m pip install pyinstaller`
+
+### 一键打包
+
+在项目根目录执行：
+
+```powershell
+npm run package:win
+```
+
+它会依次执行：
+
+```powershell
+npm run build:frontend
+npm run build:backend
+npm run build:desktop
+```
+
+### 产物位置
+
+- 后端 exe：`dist\\backend\\AIgumentBackend.exe`
+- Windows 安装包：`release\\`
+
+### 配置文件和数据位置
+
+桌面版运行后，用户数据会默认写入：
+
+```text
+%LOCALAPPDATA%\\AIgument
+```
+
+其中包括：
+
+- 数据库：`%LOCALAPPDATA%\\AIgument\\aigument.db`
+- 用户配置：`%LOCALAPPDATA%\\AIgument\\.env`
+
+应用会优先读取这个用户目录下的 `.env`；如果没有，再回退到打包时带入的配置。
+
+### 单独构建后端 exe
+
+如果你只想先验证后端打包，可以执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\\build-backend.ps1
+```
+
+### 启动失败排查
+
+如果桌面版弹出“Timed out waiting for the local AIgument service to start.”，通常说明内置后端没有成功启动。
+
+新版本会把后端日志写到：
+
+```text
+%APPDATA%\\AIgument\\logs\\backend.log
+```
+
+常见原因包括：
+
+- 杀毒软件或系统策略拦截了后端进程
+- 使用了 PyInstaller 单文件模式后，临时解压目录无权限
+- `.env` 缺失或配置有误
+
+当前项目已经改成更稳定的目录模式打包后端，重新执行完整打包即可：
+
+```powershell
+npm run package:win
+```
+
 ## 📡 API 端点
 
 ### Multi-Agent 辩论

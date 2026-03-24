@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Brain, Lightbulb, BookOpen, HelpCircle, Send, RefreshCw, ChevronRight, Sparkles } from 'lucide-react'
-import { API_BASE_URL } from '@/config/env'
+import { buildApiUrl } from '@/config/env'
 import { streamSSE } from '@/utils/sse'
 
 interface QAMode {
@@ -36,7 +36,7 @@ export function SocraticQAView() {
 
     // 获取可用模式
     useEffect(() => {
-        fetch(`${API_BASE_URL}/api/qa/modes`)
+        fetch(buildApiUrl('/api/qa/modes'))
             .then(res => res.json())
             .then(data => setModes(data.modes || []))
             .catch(err => console.error('Failed to fetch modes:', err))
@@ -73,7 +73,7 @@ export function SocraticQAView() {
             })
 
             await streamSSE<SocraticQAStreamEvent>({
-                url: `${API_BASE_URL}/api/qa/socratic-stream?${params.toString()}`,
+                url: `${buildApiUrl('/api/qa/socratic-stream')}?${params.toString()}`,
                 signal: abortRef.current.signal,
                 onEvent: (data) => {
                     if (data.type === 'content' && data.content !== undefined) {

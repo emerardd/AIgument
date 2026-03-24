@@ -2,8 +2,17 @@
 配置管理模块
 """
 import os
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+
+from dotenv import load_dotenv
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from runtime import get_database_path, get_env_file_candidates
+
+
+for env_file in get_env_file_candidates():
+    if env_file.exists():
+        load_dotenv(env_file, override=False, encoding="utf-8")
 
 
 class Settings(BaseSettings):
@@ -39,9 +48,8 @@ class Settings(BaseSettings):
         super().__init__(**kwargs)
         # 如果数据库URL未设置，使用默认SQLite路径
         if not self.database_url:
-            instance_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "instance")
-            os.makedirs(instance_dir, exist_ok=True)
-            self.database_url = f"sqlite:///{os.path.join(instance_dir, 'aigument.db')}"
+            db_path = get_database_path()
+            self.database_url = f"sqlite:///{db_path.as_posix()}"
 
 
 @lru_cache()

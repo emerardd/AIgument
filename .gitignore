@@ -187,4 +187,9 @@ __pycache__/
 frontend/node_modules/
 frontend/.vite/
 frontend/dist/
+src/static/dist/
+node_modules/
+release/
+dist/backend/
+build/pyinstaller/
 

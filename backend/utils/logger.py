@@ -42,11 +42,12 @@ class ColoredFormatter(logging.Formatter):
         'CRITICAL': '\033[35m',  # 紫色
     }
     RESET = '\033[0m'
+    USE_COLOR = sys.stdout.isatty()
     
     def format(self, record):
         # 添加颜色
         levelname = record.levelname
-        if levelname in self.COLORS:
+        if self.USE_COLOR and levelname in self.COLORS:
             record.levelname = f"{self.COLORS[levelname]}{levelname}{self.RESET}"
         
         # 添加请求 ID
@@ -91,6 +92,7 @@ def get_logger(name: str, level: Optional[int] = None) -> logging.Logger:
     console_handler.setFormatter(formatter)
     
     logger.addHandler(console_handler)
+    logger.propagate = False
     
     return logger
 
