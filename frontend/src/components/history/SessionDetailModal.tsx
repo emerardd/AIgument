@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer'
 import { useHistoryStore } from '@/stores/historyStore'
 import { useChatStore } from '@/stores/chatStore'
+import { useQAStore } from '@/stores/qaStore'
 import { useToast } from '@/hooks/useToast'
 import { downloadSessionExport } from '@/utils/download'
 import { X, Loader2, Download, Calendar, MessageCircle } from 'lucide-react'
@@ -17,7 +18,8 @@ interface SessionDetailModalProps {
 
 export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetailModalProps) {
     const { selectedSession, isDetailLoading, fetchSessionDetail, clearSelectedSession } = useHistoryStore()
-    const { restoreMessages } = useChatStore()
+    const { restoreSession: restoreChatSession } = useChatStore()
+    const { restoreSession: restoreQASession } = useQAStore()
     const toast = useToast()
     const navigate = useNavigate()
 
@@ -52,6 +54,12 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
             topic: 'border-l-gray-500 bg-gray-50 dark:bg-gray-900/10',
             user: 'border-l-green-500 bg-green-50 dark:bg-green-900/10',
             assistant: 'border-l-purple-500 bg-purple-50 dark:bg-purple-900/10',
+            小阳: 'border-l-sky-500 bg-sky-50 dark:bg-sky-900/10',
+            老陈: 'border-l-orange-500 bg-orange-50 dark:bg-orange-900/10',
+            阿疑: 'border-l-rose-500 bg-rose-50 dark:bg-rose-900/10',
+            小创: 'border-l-emerald-500 bg-emerald-50 dark:bg-emerald-900/10',
+            老王: 'border-l-stone-500 bg-stone-50 dark:bg-stone-900/10',
+            孔思: 'border-l-indigo-500 bg-indigo-50 dark:bg-indigo-900/10',
         }
         return colors[role] || 'border-l-gray-500 bg-gray-50'
     }
@@ -66,6 +74,12 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
             topic: { text: '主题', emoji: '📌' },
             user: { text: '用户', emoji: '👤' },
             assistant: { text: 'AI', emoji: '🤖' },
+            小阳: { text: '小阳', emoji: '🌞' },
+            老陈: { text: '老陈', emoji: '📊' },
+            阿疑: { text: '阿疑', emoji: '❓' },
+            小创: { text: '小创', emoji: '💡' },
+            老王: { text: '老王', emoji: '🔧' },
+            孔思: { text: '孔思', emoji: '📚' },
         }
         return labels[role] || { text: role, emoji: '💬' }
     }
@@ -82,7 +96,6 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
         const messages = selectedSession.messages
 
         if (sessionType === 'chat' || sessionType === 'qa') {
-            // 将消息转换为 ChatMessage 格式
             const chatMessages: ChatMessage[] = messages
                 .filter(msg => msg.role === 'user' || msg.role === 'assistant')
                 .map(msg => ({
@@ -90,12 +103,16 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
                     content: msg.content
                 }))
 
-            restoreMessages(chatMessages)
+            if (sessionType === 'chat') {
+                restoreChatSession(chatMessages, selectedSession.session_id)
+            } else {
+                restoreQASession(chatMessages, selectedSession.session_id)
+            }
             onClose()
             navigate(sessionType === 'chat' ? '/chat' : '/qa')
             toast.success('已恢复会话，可以继续对话')
         } else {
-            toast.info('辩论模式暂不支持继续对话')
+            toast.info('当前模式暂不支持继续对话')
         }
     }
 

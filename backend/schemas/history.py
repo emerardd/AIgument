@@ -6,7 +6,7 @@ from typing import Optional, Literal
 from datetime import datetime
 
 
-SessionType = Literal["debate", "chat", "qa"]
+SessionType = Literal["debate", "chat", "qa", "dialectic", "dual_chat", "qa_socratic"]
 
 
 class HistoryItem(BaseModel):

@@ -4,7 +4,7 @@ import { historyAPI } from '@/services/api'
 
 interface SessionDetail {
     session_id: number
-    type: 'debate' | 'dialectic' | 'chat' | 'qa'
+    type: 'debate' | 'dialectic' | 'chat' | 'qa' | 'dual_chat' | 'qa_socratic'
     messages: Array<{
         role: string
         content: string
@@ -19,12 +19,12 @@ interface HistoryState {
     isLoading: boolean
     isDetailLoading: boolean
     error: string | null
-    filter: 'all' | 'debate' | 'dialectic' | 'chat' | 'qa'
+    filter: 'all' | 'debate' | 'dialectic' | 'chat' | 'qa' | 'dual_chat' | 'qa_socratic'
 
     fetchHistory: () => Promise<void>
     fetchSessionDetail: (id: number) => Promise<void>
     deleteSession: (id: number) => Promise<void>
-    setFilter: (filter: 'all' | 'debate' | 'dialectic' | 'chat' | 'qa') => void
+    setFilter: (filter: 'all' | 'debate' | 'dialectic' | 'chat' | 'qa' | 'dual_chat' | 'qa_socratic') => void
     clearSelectedSession: () => void
 }
 
@@ -53,15 +53,8 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
         set({ isDetailLoading: true, error: null })
         try {
             const response = await historyAPI.getSession(id)
-            // 从 items 列表中查找会话类型
-            const historyItem = get().items.find(item => item.session_id === id)
-            const sessionType = historyItem?.type || 'chat' // 默认为 chat
-
             set({
-                selectedSession: {
-                    ...response.data,
-                    type: sessionType,
-                },
+                selectedSession: response.data,
                 isDetailLoading: false,
             })
         } catch (error) {

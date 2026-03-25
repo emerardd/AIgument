@@ -68,7 +68,7 @@ export interface QAResponse {
 
 // ====== 历史记录类型 ======
 
-export type SessionType = 'debate' | 'chat' | 'qa' | 'dialectic'
+export type SessionType = 'debate' | 'chat' | 'qa' | 'dialectic' | 'dual_chat' | 'qa_socratic'
 
 export interface HistoryItem {
     session_id: number

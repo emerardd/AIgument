@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Users, Play, MessageCircle, Sparkles, RefreshCw, ChevronDown, Check } from 'lucide-react'
-import { buildApiUrl } from '@/config/env'
-import { streamSSE } from '@/utils/sse'
+import { useSettingsStore } from '@/stores/settingsStore'
+import { chatAPI } from '@/services/api'
 
 interface Role {
     id: string
@@ -20,7 +20,8 @@ interface Message {
 }
 
 interface DualChatStreamEvent {
-    type: 'start' | 'message' | 'message_complete' | 'complete' | 'error'
+    type: 'session' | 'start' | 'message' | 'message_complete' | 'complete' | 'error'
+    session_id?: number
     speaker?: string
     role_id?: 'a' | 'b'
     content?: string
@@ -44,6 +45,7 @@ export function DualChatView() {
     const dropdownRefA = useRef<HTMLDivElement>(null)
     const dropdownRefB = useRef<HTMLDivElement>(null)
     const abortRef = useRef<AbortController | null>(null)
+    const { defaultProvider, defaultModel } = useSettingsStore()
 
     // 点击外部关闭下拉
     useEffect(() => {
@@ -64,10 +66,9 @@ export function DualChatView() {
     // 获取可用角色
     useEffect(() => {
         setRolesLoading(true)
-        fetch(buildApiUrl('/api/chat/roles'))
-            .then(res => res.json())
-            .then(data => {
-                setRoles(data.roles || [])
+        chatAPI.getRoles()
+            .then((res) => {
+                setRoles(res.data.roles || [])
                 setRolesLoading(false)
             })
             .catch(err => {
@@ -94,18 +95,19 @@ export function DualChatView() {
         abortRef.current = new AbortController()
 
         try {
-            const params = new URLSearchParams({
+            await chatAPI.streamDualChat(
                 topic,
-                role_a: roleA,
-                role_b: roleB,
-                turns: turns.toString(),
-            })
-
-            await streamSSE<DualChatStreamEvent>({
-                url: `${buildApiUrl('/api/chat/dual-stream')}?${params.toString()}`,
-                onEvent: handleEvent,
-                signal: abortRef.current.signal,
-            })
+                roleA,
+                roleB,
+                turns,
+                handleEvent,
+                (err) => {
+                    setError(err.message)
+                },
+                defaultProvider,
+                defaultModel,
+                abortRef.current.signal
+            )
         } catch (err) {
             if (err instanceof Error && err.name === 'AbortError') {
                 return
@@ -119,6 +121,8 @@ export function DualChatView() {
 
     const handleEvent = (event: DualChatStreamEvent) => {
         switch (event.type) {
+            case 'session':
+                break
             case 'start':
                 // 对话开始
                 break

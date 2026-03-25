@@ -35,7 +35,7 @@ async def stream_dialectic(
     事件类型：
     - opening / round_start / thesis / antithesis / synthesis / fallacy / tree_update / complete / error
     """
-    rounds = max(5, min(rounds, 10))
+    rounds = max(1, min(rounds, 10))
 
     async def generate():
         try:

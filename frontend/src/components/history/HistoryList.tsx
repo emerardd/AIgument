@@ -46,6 +46,8 @@ export function HistoryList({ onViewDetail }: HistoryListProps) {
             dialectic: { text: '辩证法', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
             chat: { text: '对话', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
             qa: { text: '问答', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
+            dual_chat: { text: '角色对话', color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300' },
+            qa_socratic: { text: '苏格拉底问答', color: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-300' },
         }
         return labels[type] || { text: type, color: 'bg-gray-100 text-gray-700' }
     }
@@ -66,7 +68,7 @@ export function HistoryList({ onViewDetail }: HistoryListProps) {
         <div className="space-y-6">
             {/* 过滤器 */}
             <div className="flex gap-2 flex-wrap">
-                {(['all', 'debate', 'dialectic', 'chat', 'qa'] as const).map((f) => (
+                {(['all', 'debate', 'dialectic', 'chat', 'qa', 'dual_chat', 'qa_socratic'] as const).map((f) => (
                     <Button
                         key={f}
                         variant={filter === f ? 'default' : 'outline'}
@@ -82,7 +84,11 @@ export function HistoryList({ onViewDetail }: HistoryListProps) {
                                     ? '辩证法'
                                     : f === 'chat'
                                         ? '对话'
-                                        : '问答'}
+                                        : f === 'qa'
+                                            ? '问答'
+                                            : f === 'dual_chat'
+                                                ? '角色对话'
+                                                : '苏格拉底问答'}
                     </Button>
                 ))}
             </div>

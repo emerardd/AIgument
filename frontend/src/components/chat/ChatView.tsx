@@ -11,11 +11,10 @@ import { Loader2, Send, Trash2, User, Sparkles, MessageCircle } from 'lucide-rea
 
 export function ChatView() {
     const [inputMessage, setInputMessage] = useState('')
-    const [sessionId, setSessionId] = useState<number | null>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLInputElement>(null)
 
-    const { messages, isLoading, error, addMessage, updateLastMessage, setLoading, setError, clear } =
+    const { messages, isLoading, error, sessionId, addMessage, updateLastMessage, setSessionId, setLoading, setError, clear } =
         useChatStore()
     const { streamMode, defaultProvider, defaultModel } = useSettingsStore()
 
@@ -104,7 +103,6 @@ export function ChatView() {
 
     const handleClear = () => {
         clear()
-        setSessionId(null)
     }
 
     return (

@@ -187,10 +187,10 @@ export default function DialecticEngine() {
                                     <input
                                         type="number"
                                         min={1}
-                                        max={15}
+                                        max={10}
                                         value={rounds}
                                         onChange={(e) => {
-                                            const v = Math.min(15, Math.max(1, Number(e.target.value) || 1))
+                                            const v = Math.min(10, Math.max(1, Number(e.target.value) || 1))
                                             setRounds(v)
                                         }}
                                         className="w-12 h-8 text-center text-sm font-bold rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/30 outline-none"

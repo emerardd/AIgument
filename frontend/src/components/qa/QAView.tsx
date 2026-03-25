@@ -3,28 +3,32 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useQAStore } from '@/stores/qaStore'
 import { qaAPI } from '@/services/api'
 import { CopyButton } from '@/components/ui/CopyButton'
 import { Loader2, Send, Trash2, BookOpen, Zap, Brain, Sparkles, ArrowUp } from 'lucide-react'
-
-interface QAMessage {
-    role: 'user' | 'assistant'
-    content: string
-}
 
 type QAStyle = 'professional' | 'detailed' | 'concise'
 
 export function QAView() {
     const [question, setQuestion] = useState('')
-    const [messages, setMessages] = useState<QAMessage[]>([])
-    const [isLoading, setIsLoading] = useState(false)
-    const [error, setError] = useState<string | null>(null)
     const [style, setStyle] = useState<QAStyle>('detailed')
-    const [sessionId, setSessionId] = useState<number | null>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLInputElement>(null)
 
     const { defaultProvider, defaultModel, streamMode } = useSettingsStore()
+    const {
+        messages,
+        isLoading,
+        error,
+        sessionId,
+        addMessage,
+        updateLastMessage,
+        setLoading: setStoreLoading,
+        setError: setStoreError,
+        setSessionId,
+        clear,
+    } = useQAStore()
 
     const scrollToBottom = () => {
         setTimeout(() => {
@@ -65,13 +69,13 @@ export function QAView() {
         const userQuestion = question.trim()
         const historyPayload = buildHistory()
 
-        setMessages((prev) => [...prev, { role: 'user', content: userQuestion }])
+        addMessage({ role: 'user', content: userQuestion })
         setQuestion('')
-        setIsLoading(true)
-        setError(null)
+        setStoreLoading(true)
+        setStoreError(null)
         scrollToBottom()
 
-        setMessages((prev) => [...prev, { role: 'assistant', content: '' }])
+        addMessage({ role: 'assistant', content: '' })
 
         if (streamMode) {
             await qaAPI.streamQA(
@@ -80,21 +84,17 @@ export function QAView() {
                     if (event.type === 'session' && event.session_id) {
                         setSessionId(event.session_id)
                     } else if (event.type === 'content' && event.content) {
-                        setMessages((prev) => {
-                            const updated = [...prev]
-                            updated[updated.length - 1] = { role: 'assistant', content: event.content! }
-                            return updated
-                        })
+                        updateLastMessage(event.content)
                     } else if (event.type === 'complete') {
-                        setIsLoading(false)
+                        setStoreLoading(false)
                     } else if (event.type === 'error') {
-                        setError('回答生成出错')
-                        setIsLoading(false)
+                        setStoreError('回答生成出错')
+                        setStoreLoading(false)
                     }
                 },
                 (err) => {
-                    setError(err.message)
-                    setIsLoading(false)
+                    setStoreError(err.message)
+                    setStoreLoading(false)
                 },
                 style,
                 defaultProvider,
@@ -115,15 +115,11 @@ export function QAView() {
                 if (response.data.session_id) {
                     setSessionId(response.data.session_id)
                 }
-                setMessages((prev) => {
-                    const updated = [...prev]
-                    updated[updated.length - 1] = { role: 'assistant', content: response.data.answer }
-                    return updated
-                })
-                setIsLoading(false)
+                updateLastMessage(response.data.answer)
+                setStoreLoading(false)
             } catch (err: unknown) {
-                setError(err instanceof Error ? err.message : '未知错误')
-                setIsLoading(false)
+                setStoreError(err instanceof Error ? err.message : '未知错误')
+                setStoreLoading(false)
             }
         }
 
@@ -131,9 +127,7 @@ export function QAView() {
     }
 
     const handleClear = () => {
-        setMessages([])
-        setError(null)
-        setSessionId(null)
+        clear()
     }
 
     return (

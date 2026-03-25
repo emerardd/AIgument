@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Brain, Lightbulb, BookOpen, HelpCircle, Send, RefreshCw, ChevronRight, Sparkles } from 'lucide-react'
-import { buildApiUrl } from '@/config/env'
-import { streamSSE } from '@/utils/sse'
+import { useSettingsStore } from '@/stores/settingsStore'
+import { qaAPI } from '@/services/api'
 
 interface QAMode {
     id: string
@@ -31,14 +31,15 @@ export function SocraticQAView() {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [history, setHistory] = useState<Array<{ role: string; content: string }>>([])
+    const [sessionId, setSessionId] = useState<number | null>(null)
     const responseRef = useRef<HTMLDivElement>(null)
     const abortRef = useRef<AbortController | null>(null)
+    const { defaultProvider, defaultModel } = useSettingsStore()
 
     // 获取可用模式
     useEffect(() => {
-        fetch(buildApiUrl('/api/qa/modes'))
-            .then(res => res.json())
-            .then(data => setModes(data.modes || []))
+        qaAPI.getModes()
+            .then((res) => setModes(res.data.modes || []))
             .catch(err => console.error('Failed to fetch modes:', err))
     }, [])
 
@@ -64,18 +65,14 @@ export function SocraticQAView() {
         abortRef.current = new AbortController()
 
         try {
-            const historyParam = JSON.stringify(history)
             let fullResponse = ''
-            const params = new URLSearchParams({
+            await qaAPI.streamSocraticQA(
                 question,
-                mode: selectedMode,
-                history: historyParam,
-            })
-
-            await streamSSE<SocraticQAStreamEvent>({
-                url: `${buildApiUrl('/api/qa/socratic-stream')}?${params.toString()}`,
-                signal: abortRef.current.signal,
-                onEvent: (data) => {
+                selectedMode as 'socratic' | 'structured' | 'hybrid',
+                (data: SocraticQAStreamEvent) => {
+                    if (data.type === 'session' && data.session_id) {
+                        setSessionId(data.session_id)
+                    }
                     if (data.type === 'content' && data.content !== undefined) {
                         setResponse(data.content)
                         fullResponse = data.content
@@ -85,7 +82,15 @@ export function SocraticQAView() {
                         setError(data.error || 'Unknown error')
                     }
                 },
-            })
+                (err) => {
+                    setError(err.message)
+                },
+                defaultProvider,
+                defaultModel,
+                history,
+                sessionId ?? undefined,
+                abortRef.current.signal
+            )
 
             // 更新历史
             if (fullResponse) {
@@ -117,6 +122,7 @@ export function SocraticQAView() {
         setHistory([])
         setResponse('')
         setQuestion('')
+        setSessionId(null)
     }
 
     return (

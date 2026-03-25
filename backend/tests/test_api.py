@@ -47,6 +47,28 @@ class TestHistoryAPI:
         assert isinstance(data["history"], list)
         assert isinstance(data["total"], int)
 
+    def test_get_history_includes_new_session_types(self, client, db_session):
+        """测试历史记录支持新版会话类型"""
+        from models.session import Session
+
+        db_session.add_all([
+            Session(session_type="dual_chat", topic="双角色测试"),
+            Session(session_type="qa_socratic", topic="苏格拉底测试"),
+        ])
+        db_session.commit()
+
+        dual_response = client.get("/api/history", params={"type": "dual_chat"})
+        assert dual_response.status_code == 200
+        dual_data = dual_response.json()
+        assert dual_data["total"] == 1
+        assert dual_data["history"][0]["type"] == "dual_chat"
+
+        socratic_response = client.get("/api/history", params={"type": "qa_socratic"})
+        assert socratic_response.status_code == 200
+        socratic_data = socratic_response.json()
+        assert socratic_data["total"] == 1
+        assert socratic_data["history"][0]["type"] == "qa_socratic"
+
 
 # 注意：以下测试需要 AI API Key，CI 中可能跳过
 class TestDebateAPI:
