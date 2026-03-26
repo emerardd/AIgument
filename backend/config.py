@@ -84,9 +84,13 @@ RUN_CONFIG_PRESETS = {
 # 模型成本（静态估算，单位 USD / 1K tokens）
 MODEL_PRICING = {
     "deepseek-chat": {"prompt": 0.0005, "completion": 0.0010},
-    "gpt-4.1": {"prompt": 0.01, "completion": 0.03},
-    "gpt-5": {"prompt": 0.02, "completion": 0.06},
-    "gemini-2.5-pro": {"prompt": 0.01, "completion": 0.03},
+    "gpt-5.4": {"prompt": 0.02, "completion": 0.06},
+    "gpt-5.4-pro": {"prompt": 0.03, "completion": 0.09},
+    "gpt-5.4-mini": {"prompt": 0.005, "completion": 0.015},
+    "gpt-5.4-nano": {"prompt": 0.001, "completion": 0.003},
+    "gemini-3.1-pro": {"prompt": 0.01, "completion": 0.03},
+    "gemini-3-flash": {"prompt": 0.002, "completion": 0.006},
+    "gemini-3.1-flash-lite": {"prompt": 0.0005, "completion": 0.0015},
     "claude-opus-4.6": {"prompt": 0.015, "completion": 0.05},
     "mock": {"prompt": 0.0, "completion": 0.0}
 }

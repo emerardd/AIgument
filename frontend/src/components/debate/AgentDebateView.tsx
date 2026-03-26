@@ -26,7 +26,7 @@ export function AgentDebateView() {
     const [proProvider, setProProvider] = useState<Provider>('deepseek')
     const [proModel, setProModel] = useState('deepseek-chat')
     const [conProvider, setConProvider] = useState<Provider>('openai')
-    const [conModel, setConModel] = useState('gpt-5-mini')
+    const [conModel, setConModel] = useState('gpt-5.4-mini')
     const [showTopics, setShowTopics] = useState(false)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const abortRef = useRef<AbortController | null>(null)
