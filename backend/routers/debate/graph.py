@@ -14,6 +14,12 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 router = APIRouter()
+ROLE_TO_AUTHOR = {
+    "正方": "pro",
+    "反方": "con",
+    "pro": "pro",
+    "con": "con",
+}
 
 
 @router.get("/debate/{session_id}/graph")
@@ -51,9 +57,11 @@ async def get_argument_graph(
         # 构建图谱
         graph = ArgumentGraph(topic=session.topic or "")
         
-        # 添加论点节点
+        # 添加论点节点（仅保留辩手消息，跳过 user/assistant/system 等）
         for msg in messages:
-            author = "pro" if msg.role == "正方" else "con"
+            author = ROLE_TO_AUTHOR.get(msg.role or "")
+            if not author:
+                continue
             round_num = msg.meta_info.get("round", 1) if msg.meta_info else 1
             
             # 简单的关键点提取
@@ -75,6 +83,9 @@ async def get_argument_graph(
                 key_points=key_points,
                 strength=strength
             )
+
+        if not graph.nodes:
+            return {"error": "No debater messages in session"}
         
         # 简单的关系推断
         node_list = list(graph.nodes.values())

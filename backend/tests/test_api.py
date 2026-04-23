@@ -70,6 +70,45 @@ class TestHistoryAPI:
         assert socratic_data["history"][0]["type"] == "qa_socratic"
 
 
+class TestDebateGraphAPI:
+    """测试辩论图谱 API"""
+
+    def test_graph_ignores_non_debater_messages(self, client, db_session):
+        from models.session import Session, Message
+
+        session = Session(session_type="debate", topic="测试图谱")
+        db_session.add(session)
+        db_session.flush()
+        db_session.add_all([
+            Message(session_id=session.id, role="user", content="用户提问"),
+            Message(session_id=session.id, role="assistant", content="系统说明"),
+            Message(session_id=session.id, role="正方", content="正方观点"),
+            Message(session_id=session.id, role="反方", content="反方观点"),
+        ])
+        db_session.commit()
+
+        response = client.get(f"/api/debate/{session.id}/graph")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["scores"]["total_arguments"] == 2
+
+    def test_graph_returns_error_when_no_debater_messages(self, client, db_session):
+        from models.session import Session, Message
+
+        session = Session(session_type="debate", topic="无辩手消息")
+        db_session.add(session)
+        db_session.flush()
+        db_session.add_all([
+            Message(session_id=session.id, role="user", content="只有用户消息"),
+            Message(session_id=session.id, role="assistant", content="只有助手消息"),
+        ])
+        db_session.commit()
+
+        response = client.get(f"/api/debate/{session.id}/graph")
+        assert response.status_code == 200
+        assert response.json() == {"error": "No debater messages in session"}
+
+
 # 注意：以下测试需要 AI API Key，CI 中可能跳过
 class TestDebateAPI:
     """测试辩论 API（需要 mock 或真实 API Key）"""
