@@ -9,7 +9,7 @@
 import json
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session as DBSession
 
 from config import DEFAULT_MODEL, DEFAULT_PROVIDER
@@ -18,7 +18,7 @@ from models.session import Session, Message
 from schemas.qa import QARequest
 from services.ai_client import AIClient
 from services.socratic_qa import create_socratic_qa
-from utils import get_api_key, resolve_prompt, sse_event, sse_response
+from utils import get_api_key, mark_session_status, resolve_prompt, sse_event, sse_response
 from utils.logger import get_logger
 
 router = APIRouter(prefix="/api", tags=["qa"])
@@ -152,7 +152,7 @@ async def qa(request: QARequest, db: DBSession = Depends(get_db)):
 
 @router.get("/qa/stream")
 async def stream_qa(
-    question: str,
+    question: str = Query(..., min_length=1),
     style: str = "professional",
     history: str = "[]",
     provider: str = DEFAULT_PROVIDER,
@@ -163,6 +163,7 @@ async def stream_qa(
     """流式问答接口"""
 
     async def generate():
+        session = None
         try:
             api_key = get_api_key(provider)
             client = AIClient(provider=provider, model=model, api_key=api_key)
@@ -177,6 +178,8 @@ async def stream_qa(
                 topic=question,
                 settings={"provider": provider, "model": model, "style": style},
             )
+            mark_session_status(session, "running")
+            db.commit()
 
             yield sse_event({"type": "session", "session_id": session.id})
 
@@ -191,15 +194,30 @@ async def stream_qa(
 
             assistant_msg = Message(session_id=session.id, role="assistant", content=full_response)
             db.add(assistant_msg)
+            mark_session_status(session, "completed")
             db.commit()
 
             yield sse_event({"type": "complete"})
 
         except HTTPException as e:
             db.rollback()
+            if session is not None:
+                try:
+                    mark_session_status(session, "failed", str(e.detail))
+                    db.commit()
+                except Exception:
+                    db.rollback()
+                    logger.exception("failed to mark qa session as failed")
             yield sse_event({"type": "error", "error": e.detail})
         except Exception as e:
             db.rollback()
+            if session is not None:
+                try:
+                    mark_session_status(session, "failed", str(e))
+                    db.commit()
+                except Exception:
+                    db.rollback()
+                    logger.exception("failed to mark qa session as failed")
             logger.exception("stream qa failed")
             yield sse_event({"type": "error", "error": str(e)})
 
@@ -239,7 +257,7 @@ def get_qa_modes():
 
 @router.get("/qa/socratic")
 async def socratic_qa(
-    question: str,
+    question: str = Query(..., min_length=1),
     mode: str = "hybrid",  # socratic, structured, hybrid
     provider: str = DEFAULT_PROVIDER,
     model: str = DEFAULT_MODEL,
@@ -307,7 +325,7 @@ async def socratic_qa(
 
 @router.get("/qa/socratic-stream")
 async def stream_socratic_qa(
-    question: str,
+    question: str = Query(..., min_length=1),
     mode: str = "hybrid",
     history: str = "[]",
     provider: str = DEFAULT_PROVIDER,
@@ -321,6 +339,7 @@ async def stream_socratic_qa(
     流式返回引导式或结构化回答。
     """
     async def generate():
+        session = None
         try:
             api_key = get_api_key(provider)
             client = AIClient(provider=provider, model=model, api_key=api_key)
@@ -343,6 +362,8 @@ async def stream_socratic_qa(
                 topic=question,
                 settings={"provider": provider, "model": model, "mode": mode},
             )
+            mark_session_status(session, "running")
+            db.commit()
 
             yield sse_event({"type": "session", "session_id": session.id, "mode": mode})
 
@@ -364,13 +385,28 @@ async def stream_socratic_qa(
                     meta_info={"mode": mode},
                 )
                 db.add(assistant_msg)
-                db.commit()
+            mark_session_status(session, "completed")
+            db.commit()
 
         except HTTPException as e:
             db.rollback()
+            if session is not None:
+                try:
+                    mark_session_status(session, "failed", str(e.detail))
+                    db.commit()
+                except Exception:
+                    db.rollback()
+                    logger.exception("failed to mark socratic qa session as failed")
             yield sse_event({"type": "error", "error": e.detail})
         except Exception as e:
             db.rollback()
+            if session is not None:
+                try:
+                    mark_session_status(session, "failed", str(e))
+                    db.commit()
+                except Exception:
+                    db.rollback()
+                    logger.exception("failed to mark socratic qa session as failed")
             logger.exception("stream socratic qa failed")
             yield sse_event({"type": "error", "error": str(e)})
 

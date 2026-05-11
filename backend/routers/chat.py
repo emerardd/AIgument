@@ -8,7 +8,7 @@
 import json
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session as DBSession
 
 from config import DEFAULT_MODEL, DEFAULT_PROVIDER
@@ -17,7 +17,7 @@ from models.session import Session, Message
 from schemas.chat import ChatRequest, ChatMessage
 from services.ai_client import AIClient
 from services.dual_chat import create_dual_chat, ROLE_TEMPLATES
-from utils import get_api_key, resolve_prompt, sse_event, sse_response
+from utils import get_api_key, mark_session_status, resolve_prompt, sse_event, sse_response
 from utils.logger import get_logger
 
 router = APIRouter(prefix="/api", tags=["chat"])
@@ -138,7 +138,7 @@ async def chat(request: ChatRequest, db: DBSession = Depends(get_db)):
 
 @router.get("/chat/stream")
 async def stream_chat(
-    message: str,
+    message: str = Query(..., min_length=1),
     history: str = "[]",
     provider: str = DEFAULT_PROVIDER,
     model: str = DEFAULT_MODEL,
@@ -148,6 +148,7 @@ async def stream_chat(
     """流式对话接口"""
 
     async def generate():
+        session = None
         try:
             api_key = get_api_key(provider)
             client = AIClient(provider=provider, model=model, api_key=api_key)
@@ -162,6 +163,8 @@ async def stream_chat(
                 provider=provider,
                 model=model,
             )
+            mark_session_status(session, "running")
+            db.commit()
 
             yield sse_event({"type": "session", "session_id": session.id})
 
@@ -176,15 +179,30 @@ async def stream_chat(
 
             assistant_msg = Message(session_id=session.id, role="assistant", content=full_response)
             db.add(assistant_msg)
+            mark_session_status(session, "completed")
             db.commit()
 
             yield sse_event({"type": "complete"})
 
         except HTTPException as e:
             db.rollback()
+            if session is not None:
+                try:
+                    mark_session_status(session, "failed", str(e.detail))
+                    db.commit()
+                except Exception:
+                    db.rollback()
+                    logger.exception("failed to mark chat session as failed")
             yield sse_event({"type": "error", "error": e.detail})
         except Exception as e:
             db.rollback()
+            if session is not None:
+                try:
+                    mark_session_status(session, "failed", str(e))
+                    db.commit()
+                except Exception:
+                    db.rollback()
+                    logger.exception("failed to mark chat session as failed")
             logger.exception("stream chat failed")
             yield sse_event({"type": "error", "error": str(e)})
 
@@ -214,10 +232,10 @@ def get_available_roles():
 
 @router.get("/chat/dual-stream")
 async def stream_dual_chat(
-    topic: str,
+    topic: str = Query(..., min_length=1, max_length=500),
     role_a: str = "乐观主义者",
     role_b: str = "现实主义者",
-    turns: int = 3,
+    turns: int = Query(3, ge=1, le=20),
     provider: str = DEFAULT_PROVIDER,
     model: str = DEFAULT_MODEL,
     db: DBSession = Depends(get_db)
@@ -235,6 +253,7 @@ async def stream_dual_chat(
         - complete: 对话结束
     """
     async def generate():
+        session = None
         try:
             api_key = get_api_key(provider)
             client = AIClient(provider=provider, model=model, api_key=api_key)
@@ -256,6 +275,7 @@ async def stream_dual_chat(
                     "role_b": role_b,
                     "turns": turns,
                     "mode": "dual_character",
+                    "status": "running",
                 },
             )
             db.add(session)
@@ -280,10 +300,18 @@ async def stream_dual_chat(
                     )
                     db.add(msg)
 
+            mark_session_status(session, "completed")
             db.commit()
 
         except Exception as e:
             db.rollback()
+            if session is not None:
+                try:
+                    mark_session_status(session, "failed", str(e))
+                    db.commit()
+                except Exception:
+                    db.rollback()
+                    logger.exception("failed to mark dual chat session as failed")
             logger.exception("dual chat failed")
             yield sse_event({"type": "error", "error": str(e)})
 

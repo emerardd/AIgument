@@ -7,6 +7,7 @@ from config import get_settings
 from exceptions import APIKeyMissingException, ProviderNotSupportedException
 from .logger import get_logger, log_request, log_ai_call, log_debate_event
 from .prompting import resolve_prompt
+from .session_state import mark_session_status, merge_session_settings
 from .sse import sse_event, sse_response
 
 
@@ -39,6 +40,8 @@ __all__ = [
     "log_debate_event",
     "get_api_key",
     "resolve_prompt",
+    "mark_session_status",
+    "merge_session_settings",
     "sse_event",
     "sse_response",
 ]

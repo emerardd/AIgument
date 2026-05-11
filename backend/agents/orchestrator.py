@@ -11,6 +11,7 @@ from utils.logger import get_logger
 
 from .base_orchestrator import BaseOrchestrator
 from .debater_agent import DebaterAgent
+from .events import DebateEvent
 from .jury_agent import JuryAgent
 from .protocol import AgentMessage, MessageBus, MessageTemplates, MessageType
 
@@ -32,8 +33,15 @@ class DebateOrchestrator(BaseOrchestrator):
         self.jury_agent: Optional[JuryAgent] = None
         self.memory_store: Optional[DebateMemory] = None
         self.message_bus = MessageBus()
+        self.event_log: List[DebateEvent] = []
         self.debate_state = self.STATE_NOT_STARTED
         self.total_rounds = 3
+
+    def _record_event(self, event_type: str, *, transient: bool = False, **payload: Any) -> Dict[str, Any]:
+        event = DebateEvent.from_payload(event_type, payload, transient=transient)
+        if not transient:
+            self.event_log.append(event)
+        return event.to_stream_payload()
 
     def add_to_memory(self, event: Dict[str, Any]) -> None:
         event["timestamp"] = datetime.now().isoformat()
@@ -93,6 +101,7 @@ class DebateOrchestrator(BaseOrchestrator):
         if hasattr(self.ai_client, "seed"):
             self.ai_client.seed = seed
 
+        self.event_log = []
         self.memory_store = DebateMemory(topic=topic, total_rounds=total_rounds)
         self.memory_store.set_run_config(self.run_config)
 
@@ -137,14 +146,19 @@ class DebateOrchestrator(BaseOrchestrator):
 
         self.debate_state = self.STATE_IN_PROGRESS
         self.memory_store.start_debate()
-        yield {"type": "opening", "content": f"辩题：{self.topic}", "topic": self.topic, "total_rounds": self.total_rounds}
+        yield self._record_event(
+            "opening",
+            content=f"辩题：{self.topic}",
+            topic=self.topic,
+            total_rounds=self.total_rounds,
+        )
 
         debate_context: Dict[str, Any] = {"topic": self.topic, "history": []}
 
         for round_num in range(1, self.total_rounds + 1):
             self.current_round = round_num
             self.memory_store.start_round(round_num)
-            yield {"type": "round_start", "round": round_num, "total_rounds": self.total_rounds}
+            yield self._record_event("round_start", round=round_num, total_rounds=self.total_rounds)
 
             turn_order = ["pro", "con"] if round_num % 2 == 1 else ["con", "pro"]
             round_arguments: Dict[str, str] = {}
@@ -164,7 +178,9 @@ class DebateOrchestrator(BaseOrchestrator):
                 async for event in self._stream_agent_react(agent, context):
                     if event.get("type") == "thinking":
                         thinking = event.get("content")
-                    yield event
+                    event_type = event.get("type", "")
+                    payload = {key: value for key, value in event.items() if key != "type"}
+                    yield self._record_event(event_type, transient=event_type == "argument", **payload)
                     if event.get("type") == "argument_complete":
                         full_argument = event.get("content", "")
 
@@ -191,8 +207,8 @@ class DebateOrchestrator(BaseOrchestrator):
                 )
             )
 
-            yield {"type": "evaluation", "round": round_num, **eval_dict}
-            yield {"type": "standings", "standings": self.memory_store.get_current_standings()}
+            yield self._record_event("evaluation", **eval_dict)
+            yield self._record_event("standings", standings=self.memory_store.get_current_standings())
             self.memory_store.end_round(round_num)
 
         verdict = await self.jury_agent.final_verdict()
@@ -208,10 +224,10 @@ class DebateOrchestrator(BaseOrchestrator):
                 summary=verdict.summary,
             )
         )
-        yield {"type": "verdict", **verdict_dict}
+        yield self._record_event("verdict", **verdict_dict)
 
         self.debate_state = self.STATE_COMPLETED
-        yield {"type": "complete", "message_history": self.message_bus.export_history()}
+        yield self._record_event("complete", message_history=self.message_bus.export_history())
 
     async def _stream_agent_react(
         self,
@@ -245,8 +261,25 @@ class DebateOrchestrator(BaseOrchestrator):
         if not self.memory_store:
             return {}
 
-        evaluations = self.memory_store.evaluations or []
-        verdict = self.memory_store.get("verdict")
+        durable_events = [event for event in self.event_log if not event.transient]
+        evaluations = [
+            event.payload
+            for event in durable_events
+            if event.type == "evaluation"
+        ]
+        verdict_event = next((event for event in durable_events if event.type == "verdict"), None)
+        verdict = verdict_event.payload if verdict_event else self.memory_store.get("verdict")
+        standings_event = next(
+            (event for event in reversed(durable_events) if event.type == "standings"),
+            None,
+        )
+        standings = standings_event.payload.get("standings") if standings_event else self.memory_store.get_current_standings()
+
+        thinking_by_turn = {
+            (event.round, event.side): event.payload.get("content")
+            for event in durable_events
+            if event.type == "thinking"
+        }
 
         def score_for_round(round_num: int, side: str) -> Optional[Dict[str, Any]]:
             evaluation = next((item for item in evaluations if item.get("round") == round_num), None)
@@ -258,27 +291,31 @@ class DebateOrchestrator(BaseOrchestrator):
                 return {**score, "total": total}
             return {"total": score}
 
-        turns = [
-            {
-                "round": argument.round,
-                "side": argument.side,
-                "role": f"debater_{argument.side}",
-                "thought": argument.thinking,
+        turns = []
+        for event in durable_events:
+            if event.type != "argument_complete":
+                continue
+            side = event.side or event.payload.get("side")
+            round_num = event.round or event.payload.get("round")
+            turns.append({
+                "round": round_num,
+                "side": side,
+                "role": f"debater_{side}",
+                "thought": thinking_by_turn.get((round_num, side)),
                 "action": "argument",
-                "result": argument.content,
-                "score": score_for_round(argument.round, argument.side),
-                "timestamp": argument.timestamp.isoformat(),
-            }
-            for argument in self.memory_store.arguments
-        ]
+                "result": event.payload.get("content", ""),
+                "score": score_for_round(round_num, side),
+                "timestamp": event.timestamp.isoformat(),
+            })
 
         return {
             "topic": self.topic,
             "created_at": turns[0]["timestamp"] if turns else None,
             "run_config": self.run_config,
+            "events": [event.to_trace_dict() for event in durable_events],
             "turns": turns,
             "evaluations": evaluations,
             "verdict": verdict,
-            "standings": self.memory_store.get_current_standings(),
+            "standings": standings,
             "message_history": self.message_bus.export_history(),
         }

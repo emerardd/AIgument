@@ -4,7 +4,7 @@ Multi-Agent 辩论 API
 使用 DebateOrchestrator 协调多个 Agent 的高级辩论接口
 """
 from typing import Optional, Literal
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session as DBSession
 
 from config import DEFAULT_MODEL, DEFAULT_PROVIDER
@@ -14,7 +14,7 @@ from schemas.debate import DebateRequest
 from services.ai_client import AIClient
 from agents import DebateOrchestrator
 from models.debate_record import DebateRecord
-from utils import get_api_key, sse_event, sse_response
+from utils import get_api_key, mark_session_status, merge_session_settings, sse_event, sse_response
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -24,8 +24,8 @@ router = APIRouter()
 
 @router.get("/debate/agent-stream")
 async def agent_stream_debate(
-    topic: str,
-    rounds: int = 3,
+    topic: str = Query(..., min_length=1, max_length=500),
+    rounds: int = Query(3, ge=1, le=10),
     provider: str = DEFAULT_PROVIDER,
     model: str = DEFAULT_MODEL,
     temperature: Optional[float] = None,
@@ -58,6 +58,7 @@ async def agent_stream_debate(
     """
     
     async def generate():
+        session = None
         try:
             api_key = get_api_key(provider)
             
@@ -72,7 +73,8 @@ async def agent_stream_debate(
                     "temperature": temperature,
                     "seed": seed,
                     "preset": preset,
-                    "mode": "multi-agent"
+                    "mode": "multi-agent",
+                    "status": "running"
                 }
             )
             db.add(session)
@@ -108,12 +110,12 @@ async def agent_stream_debate(
                 pro_ai_client=pro_ai_client,
                 con_ai_client=con_ai_client
             )
-            settings = session.settings or {}
-            settings["rounds"] = orchestrator.total_rounds
-            settings["temperature"] = orchestrator.run_config.get("temperature")
-            settings["seed"] = orchestrator.run_config.get("seed")
-            settings["preset"] = orchestrator.run_config.get("preset")
-            session.settings = settings
+            merge_session_settings(session, {
+                "rounds": orchestrator.total_rounds,
+                "temperature": orchestrator.run_config.get("temperature"),
+                "seed": orchestrator.run_config.get("seed"),
+                "preset": orchestrator.run_config.get("preset"),
+            })
             
             # 运行辩论 - 使用流式版本
             messages_to_save = []
@@ -154,10 +156,11 @@ async def agent_stream_debate(
             # 保存最终状态
             final_state = orchestrator.get_full_state()
             trace = orchestrator.build_trace()
-            settings = session.settings or {}
-            settings["final_state"] = final_state
-            settings["trace"] = trace
-            session.settings = settings
+            merge_session_settings(session, {
+                "final_state": final_state,
+                "trace": trace,
+                "status": "completed",
+            })
 
             # 保存 DebateRecord
             run_cfg = orchestrator.run_config
@@ -188,6 +191,13 @@ async def agent_stream_debate(
             
         except Exception as e:
             db.rollback()
+            if session is not None:
+                try:
+                    mark_session_status(session, "failed", str(e))
+                    db.commit()
+                except Exception:
+                    db.rollback()
+                    logger.exception("failed to mark agent debate session as failed")
             import traceback
             error_detail = traceback.format_exc()
             logger.error(f"Agent 辩论失败: {error_detail}")
@@ -251,12 +261,12 @@ async def agent_debate(
             seed=request.seed,
             preset=request.preset
         )
-        settings = session.settings or {}
-        settings["rounds"] = orchestrator.total_rounds
-        settings["temperature"] = orchestrator.run_config.get("temperature")
-        settings["seed"] = orchestrator.run_config.get("seed")
-        settings["preset"] = orchestrator.run_config.get("preset")
-        session.settings = settings
+        merge_session_settings(session, {
+            "rounds": orchestrator.total_rounds,
+            "temperature": orchestrator.run_config.get("temperature"),
+            "seed": orchestrator.run_config.get("seed"),
+            "preset": orchestrator.run_config.get("preset"),
+        })
         
         # 收集所有事件（复用流式接口）
         events = []
@@ -277,9 +287,7 @@ async def agent_debate(
                 )
                 db.add(message)
         
-        settings = session.settings or {}
-        settings["trace"] = orchestrator.build_trace()
-        session.settings = settings
+        merge_session_settings(session, {"trace": orchestrator.build_trace()})
         db.commit()
         
         # 提取关键信息

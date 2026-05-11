@@ -4,14 +4,14 @@
 非 Multi-Agent 的简单辩论接口
 """
 from typing import Optional, Literal
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session as DBSession
 
 from database import get_db
 from models.session import Session, Message
 from schemas.debate import DebateRequest
 from services.debater import Debater
-from utils import get_api_key, sse_event, sse_response
+from utils import get_api_key, mark_session_status, sse_event, sse_response
 from utils.logger import get_logger
 from config import DEFAULT_MODEL, DEFAULT_PROVIDER, RUN_CONFIG_PRESETS
 
@@ -134,8 +134,8 @@ async def debate(request: DebateRequest, db: DBSession = Depends(get_db)):
 
 @router.get("/debate/stream")
 async def stream_debate(
-    topic: str,
-    rounds: int = 3,
+    topic: str = Query(..., min_length=1, max_length=500),
+    rounds: int = Query(3, ge=1, le=10),
     provider: str = DEFAULT_PROVIDER,
     model: str = DEFAULT_MODEL,
     temperature: Optional[float] = None,
@@ -146,6 +146,7 @@ async def stream_debate(
     """流式辩论接口"""
     
     async def generate():
+        session = None
         try:
             api_key = get_api_key(provider)
             preset_config = RUN_CONFIG_PRESETS.get(preset, {}) if preset else {}
@@ -164,7 +165,8 @@ async def stream_debate(
                     "model": model,
                     "temperature": final_temperature,
                     "seed": final_seed,
-                    "preset": preset
+                    "preset": preset,
+                    "status": "running"
                 }
             )
             db.add(session)
@@ -232,10 +234,19 @@ async def stream_debate(
                 
                 last_response = con_full
             
+            mark_session_status(session, "completed")
+            db.commit()
             yield sse_event({"type": "complete"})
             
         except Exception as e:
             db.rollback()
+            if session is not None:
+                try:
+                    mark_session_status(session, "failed", str(e))
+                    db.commit()
+                except Exception:
+                    db.rollback()
+                    logger.exception("failed to mark debate session as failed")
             logger.error(f"流式辩论失败: {e}")
             yield sse_event({"type": "error", "error": str(e)})
 

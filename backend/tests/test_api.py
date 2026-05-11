@@ -206,6 +206,33 @@ class TestDebateGraphAPI:
         assert response.json() == {"error": "No debater messages in session"}
 
 
+class TestStreamSessionLifecycle:
+    """测试流式接口的参数校验和会话状态记录"""
+
+    def test_agent_stream_rejects_invalid_round_count(self, client):
+        response = client.get(
+            "/api/debate/agent-stream",
+            params={"topic": "测试辩题", "rounds": 0, "provider": "mock", "model": "mock"},
+        )
+        assert response.status_code == 422
+
+    def test_stream_chat_marks_session_completed(self, client, db_session):
+        from models.session import Session
+
+        with client.stream(
+            "GET",
+            "/api/chat/stream",
+            params={"message": "你好", "provider": "mock", "model": "mock"},
+        ) as response:
+            assert response.status_code == 200
+            body = "".join(response.iter_text())
+
+        assert '"type": "complete"' in body
+        session = db_session.query(Session).filter(Session.session_type == "chat").first()
+        assert session is not None
+        assert session.settings["status"] == "completed"
+
+
 # 注意：以下测试需要 AI API Key，CI 中可能跳过
 class TestDebateAPI:
     """测试辩论 API（需要 mock 或真实 API Key）"""

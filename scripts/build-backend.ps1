@@ -30,10 +30,6 @@ $Arguments = @(
     "$BackendDir\main.py"
 )
 
-if (Test-Path (Join-Path $BackendDir ".env")) {
-    $Arguments += @("--add-data", "$BackendDir\.env;backend")
-}
-
 & $PythonExe @Arguments
 
 if (-not (Test-Path (Join-Path $PackageDir "AIgumentBackend.exe"))) {

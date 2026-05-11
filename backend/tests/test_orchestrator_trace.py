@@ -31,3 +31,10 @@ def test_build_trace_includes_verdict_streaming():
     assert trace.get("verdict") is not None
     assert trace.get("run_config") is not None
     assert trace["run_config"]["provider"] == "mock"
+    assert trace.get("events")
+    event_types = [event["type"] for event in trace["events"]]
+    assert "thinking" in event_types
+    assert "argument_complete" in event_types
+    assert "argument" not in event_types
+    assert len(trace["turns"]) == 2
+    assert trace["turns"][0]["thought"] is not None

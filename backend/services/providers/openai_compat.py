@@ -4,6 +4,7 @@ OpenAI 兼容 Provider（适用于 DeepSeek 和 OpenAI）
 使用 AsyncOpenAI 客户端，支持连接池复用。
 """
 from typing import AsyncGenerator, Dict, Optional
+import hashlib
 import httpx
 from openai import AsyncOpenAI
 
@@ -44,7 +45,8 @@ class OpenAICompatProvider(BaseProvider):
         self.model = model
         self.seed = seed
         timeout = httpx.Timeout(connect=5.0, read=60.0, write=10.0, pool=10.0)
-        pool_key = f"{api_key[:8]}:{base_url}"
+        key_digest = hashlib.sha256(api_key.encode("utf-8")).hexdigest()
+        pool_key = f"{key_digest}:{base_url}"
         self.client = self._get_or_create_client(pool_key, api_key, base_url, timeout)
 
     def _build_payload(self, messages, temperature, max_tokens, stream=False) -> dict:

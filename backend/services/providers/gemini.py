@@ -14,6 +14,8 @@ class GeminiProvider(BaseProvider):
     def __init__(self, api_key: str, model: str):
         self.api_key = api_key
         self.model = model
+        from google import genai as google_genai
+        self.client = google_genai.Client(api_key=self.api_key)
 
     def _convert_messages(self, messages: list[dict]):
         """将 OpenAI 格式消息转换为 Gemini Contents + system_instruction"""
@@ -54,13 +56,10 @@ class GeminiProvider(BaseProvider):
         )
 
     async def get_completion(self, messages, temperature=0.7, max_tokens=2000, **kwargs) -> str:
-        from google import genai as google_genai
-
-        client = google_genai.Client(api_key=self.api_key)
         system_instruction, contents = self._convert_messages(messages)
         config = self._build_config(temperature, max_tokens, system_instruction)
 
-        response = await client.aio.models.generate_content(
+        response = await self.client.aio.models.generate_content(
             model=self.model,
             contents=contents,
             config=config,
@@ -70,13 +69,10 @@ class GeminiProvider(BaseProvider):
         return response.text
 
     async def chat_stream(self, messages, temperature=0.7, max_tokens=2000, **kwargs) -> AsyncGenerator[str, None]:
-        from google import genai as google_genai
-
-        client = google_genai.Client(api_key=self.api_key)
         system_instruction, contents = self._convert_messages(messages)
         config = self._build_config(temperature, max_tokens, system_instruction)
 
-        async for chunk in await client.aio.models.generate_content_stream(
+        async for chunk in await self.client.aio.models.generate_content_stream(
             model=self.model,
             contents=contents,
             config=config,
