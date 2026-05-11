@@ -74,6 +74,35 @@ export interface QAMode {
     icon: string
 }
 
+export type DualChatStreamEvent =
+    | { type: 'session'; session_id?: number }
+    | { type: 'start'; session_id?: number }
+    | {
+        type: 'message'
+        session_id?: number
+        speaker?: string
+        role_id?: 'a' | 'b'
+        content?: string
+        turn?: number
+    }
+    | {
+        type: 'message_complete'
+        session_id?: number
+        speaker?: string
+        role_id?: 'a' | 'b'
+        content?: string
+        turn?: number
+    }
+    | { type: 'complete'; session_id?: number }
+    | { type: 'error'; session_id?: number; error?: string }
+
+export interface SocraticQAStreamEvent {
+    type: 'session' | 'content' | 'complete' | 'error'
+    session_id?: number
+    content?: string
+    error?: string
+}
+
 // ====== 辩论 API ======
 
 export const debateAPI = {
@@ -158,7 +187,8 @@ export const chatAPI = {
         provider?: string,
         model?: string,
         history?: ChatHistoryItem[],
-        sessionId?: number
+        sessionId?: number,
+        signal?: AbortSignal
     ) => {
         const params = new URLSearchParams({ message })
         if (provider) params.set('provider', provider)
@@ -170,7 +200,8 @@ export const chatAPI = {
             '/api/chat/stream',
             params,
             onEvent,
-            onError
+            onError,
+            signal
         )
     },
 
@@ -181,15 +212,7 @@ export const chatAPI = {
         roleA: string,
         roleB: string,
         turns: number,
-        onEvent: (event: {
-            type: string
-            session_id?: number
-            speaker?: string
-            role_id?: 'a' | 'b'
-            content?: string
-            turn?: number
-            error?: string
-        }) => void,
+        onEvent: (event: DualChatStreamEvent) => void,
         onError: (error: Error) => void,
         provider?: string,
         model?: string,
@@ -204,15 +227,7 @@ export const chatAPI = {
         if (provider) params.set('provider', provider)
         if (model) params.set('model', model)
 
-        await streamWithParams<{
-            type: string
-            session_id?: number
-            speaker?: string
-            role_id?: 'a' | 'b'
-            content?: string
-            turn?: number
-            error?: string
-        }>('/api/chat/dual-stream', params, onEvent, onError, signal)
+        await streamWithParams<DualChatStreamEvent>('/api/chat/dual-stream', params, onEvent, onError, signal)
     },
 }
 
@@ -244,7 +259,8 @@ export const qaAPI = {
         provider?: string,
         model?: string,
         history?: ChatHistoryItem[],
-        sessionId?: number
+        sessionId?: number,
+        signal?: AbortSignal
     ) => {
         const params = new URLSearchParams({ question })
         if (style) params.set('style', style)
@@ -257,7 +273,8 @@ export const qaAPI = {
             '/api/qa/stream',
             params,
             onEvent,
-            onError
+            onError,
+            signal
         )
     },
 
@@ -266,12 +283,7 @@ export const qaAPI = {
     streamSocraticQA: async (
         question: string,
         mode: 'socratic' | 'structured' | 'hybrid',
-        onEvent: (event: {
-            type: 'session' | 'content' | 'complete' | 'error'
-            content?: string
-            session_id?: number
-            error?: string
-        }) => void,
+        onEvent: (event: SocraticQAStreamEvent) => void,
         onError: (error: Error) => void,
         provider?: string,
         model?: string,
@@ -285,12 +297,7 @@ export const qaAPI = {
         if (history && history.length > 0) params.set('history', JSON.stringify(history))
         if (sessionId) params.set('session_id', String(sessionId))
 
-        await streamWithParams<{
-            type: 'session' | 'content' | 'complete' | 'error'
-            content?: string
-            session_id?: number
-            error?: string
-        }>(
+        await streamWithParams<SocraticQAStreamEvent>(
             '/api/qa/socratic-stream',
             params,
             onEvent,
@@ -303,10 +310,19 @@ export const qaAPI = {
 // ====== 历史记录 API ======
 
 export const historyAPI = {
-    getHistory: (type: SessionType | 'all' = 'all', limit = 100, offset = 0) =>
-        api.get<{ history: HistoryItem[]; total: number; limit: number; offset: number; has_more: boolean }>(
-            `/api/history?type=${type}&limit=${limit}&offset=${offset}`
-        ),
+    getHistory: (type: SessionType | 'all' = 'all', limit = 100, offset = 0, query = '') => {
+        const params = new URLSearchParams({
+            type,
+            limit: String(limit),
+            offset: String(offset),
+        })
+        if (query.trim()) {
+            params.set('q', query.trim())
+        }
+        return api.get<{ history: HistoryItem[]; total: number; limit: number; offset: number; has_more: boolean }>(
+            `/api/history?${params.toString()}`
+        )
+    },
 
     getSession: (id: number) => api.get<{
         session_id: number

@@ -7,7 +7,7 @@ import { dialecticAPI } from '@/services/api'
 import { DialecticRoundPanel } from '@/components/dialectic/DialecticRoundPanel'
 import { DialecticTreeView } from '@/components/dialectic/DialecticTreeView'
 import type { DialecticStreamEvent, FallacyItem, DialecticTree } from '@/types'
-import { Brain, GitBranch, Eye, EyeOff, AlertTriangle, ArrowRight, Loader2 } from 'lucide-react'
+import { Brain, GitBranch, Eye, EyeOff, AlertTriangle, ArrowRight, Loader2, Square } from 'lucide-react'
 
 export default function DialecticEngine() {
     const [inputTopic, setInputTopic] = useState('')
@@ -124,6 +124,12 @@ export default function DialecticEngine() {
         )
     }
 
+    const handleCancel = () => {
+        abortRef.current?.abort()
+        abortRef.current = null
+        setLoading(false)
+    }
+
     const roundsToRender = Array.from({ length: Math.max(currentRound, 1) }, (_, i) => i + 1)
 
     return (
@@ -157,11 +163,12 @@ export default function DialecticEngine() {
                             onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleStart()}
                         />
                         <Button
-                            onClick={handleStart}
-                            disabled={isLoading || !inputTopic.trim()}
+                            onClick={isLoading ? handleCancel : handleStart}
+                            disabled={!isLoading && !inputTopic.trim()}
                             className="h-11 px-6 rounded-xl btn-primary shrink-0 w-full sm:w-auto transition-transform active:scale-95"
+                            title={isLoading ? '停止生成' : '启动辩证法引擎'}
                         >
-                            {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <ArrowRight className="h-5 w-5" />}
+                            {isLoading ? <Square className="h-5 w-5" /> : <ArrowRight className="h-5 w-5" />}
                         </Button>
                     </div>
 

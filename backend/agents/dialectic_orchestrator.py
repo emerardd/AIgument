@@ -4,6 +4,7 @@ Dialectic engine orchestrator.
 
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
+from config import DEFAULT_MODEL, DEFAULT_PROVIDER
 from memory.dialectic_memory import DialecticMemory
 
 from .base_orchestrator import BaseOrchestrator
@@ -24,8 +25,8 @@ class DialecticOrchestrator(BaseOrchestrator):
         self,
         topic: str,
         total_rounds: int = 5,
-        provider: str = "deepseek",
-        model: str = "deepseek-chat",
+        provider: str = DEFAULT_PROVIDER,
+        model: str = DEFAULT_MODEL,
         temperature: Optional[float] = None,
         seed: Optional[int] = None
     ) -> Dict[str, Any]:

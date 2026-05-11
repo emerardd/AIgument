@@ -1,9 +1,9 @@
 import { buildApiUrl } from '@/config/env'
 
-type ExportFormat = 'md' | 'json'
+type ExportFormat = 'md' | 'json' | 'txt'
 
 export async function downloadSessionExport(sessionId: number, format: ExportFormat): Promise<void> {
-    const exportFormat = format === 'md' ? 'markdown' : 'json'
+    const exportFormat = format === 'md' ? 'markdown' : format
     const response = await fetch(buildApiUrl(`/api/history/${sessionId}/export?format=${exportFormat}`))
 
     if (!response.ok) {

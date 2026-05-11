@@ -28,9 +28,9 @@ class TestDebateRecordModel:
             total_rounds=3,
             winner="pro",
             pro_provider="deepseek",
-            pro_model="deepseek-chat",
+            pro_model="deepseek-v4-flash",
             con_provider="openai",
-            con_model="gpt-5-mini",
+            con_model="gpt-5.5",
             is_mixed=1,
             total_score_pro=78.5,
             total_score_con=72.3,
@@ -134,8 +134,8 @@ class TestAnalysisAPI:
                 session_id=session.id,
                 topic=f"统计测试{i}",
                 winner=winner,
-                pro_model="deepseek-chat",
-                con_model="gpt-5-mini",
+                pro_model="deepseek-v4-flash",
+                con_model="gpt-5.5",
             )
             db_session.add(record)
         db_session.commit()

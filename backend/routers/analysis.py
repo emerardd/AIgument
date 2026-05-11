@@ -58,11 +58,16 @@ async def get_debate_stats(db: DBSession = Depends(get_db)):
 
     # 模型使用统计
     model_stats = {}
-    records = db.query(DebateRecord).all()
-    for r in records:
-        for model_name in [r.pro_model, r.con_model]:
-            if model_name:
-                model_stats[model_name] = model_stats.get(model_name, 0) + 1
+    pro_model_rows = db.query(DebateRecord.pro_model, func.count(DebateRecord.id)).filter(
+        DebateRecord.pro_model.isnot(None)
+    ).group_by(DebateRecord.pro_model).all()
+    con_model_rows = db.query(DebateRecord.con_model, func.count(DebateRecord.id)).filter(
+        DebateRecord.con_model.isnot(None)
+    ).group_by(DebateRecord.con_model).all()
+    for model_name, count in pro_model_rows:
+        model_stats[model_name] = model_stats.get(model_name, 0) + count
+    for model_name, count in con_model_rows:
+        model_stats[model_name] = model_stats.get(model_name, 0) + count
 
     return {
         "total_debates": total,

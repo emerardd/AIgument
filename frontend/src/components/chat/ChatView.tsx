@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer'
@@ -7,16 +7,24 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { chatAPI } from '@/services/api'
 import type { ChatMessage } from '@/types'
 import { CopyButton } from '@/components/ui/CopyButton'
-import { Loader2, Send, Trash2, User, Sparkles, MessageCircle } from 'lucide-react'
+import { Loader2, Send, Square, Trash2, User, Sparkles, MessageCircle } from 'lucide-react'
 
 export function ChatView() {
     const [inputMessage, setInputMessage] = useState('')
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLInputElement>(null)
+    const abortRef = useRef<AbortController | null>(null)
 
     const { messages, isLoading, error, sessionId, addMessage, updateLastMessage, setSessionId, setLoading, setError, clear } =
         useChatStore()
     const { streamMode, defaultProvider, defaultModel } = useSettingsStore()
+
+    useEffect(() => {
+        return () => {
+            abortRef.current?.abort()
+            setLoading(false)
+        }
+    }, [setLoading])
 
     const scrollToBottom = () => {
         setTimeout(() => {
@@ -54,6 +62,8 @@ export function ChatView() {
         addMessage(aiMessage)
 
         if (streamMode) {
+            abortRef.current?.abort()
+            abortRef.current = new AbortController()
             await chatAPI.streamChat(
                 userMessage.content,
                 (event) => {
@@ -75,8 +85,10 @@ export function ChatView() {
                 defaultProvider,
                 defaultModel,
                 historyPayload,
-                sessionId ?? undefined
+                sessionId ?? undefined,
+                abortRef.current.signal
             )
+            abortRef.current = null
         } else {
             try {
                 const response = await chatAPI.sendMessage(
@@ -103,6 +115,12 @@ export function ChatView() {
 
     const handleClear = () => {
         clear()
+    }
+
+    const handleCancel = () => {
+        abortRef.current?.abort()
+        abortRef.current = null
+        setLoading(false)
     }
 
     return (
@@ -202,12 +220,13 @@ export function ChatView() {
                         className="flex-1 rounded-xl border-0 bg-muted/50 focus:bg-background focus:ring-2 focus:ring-primary/20 transition-all"
                     />
                     <Button
-                        onClick={handleSend}
-                        disabled={!inputMessage.trim() || isLoading}
+                        onClick={isLoading ? handleCancel : handleSend}
+                        disabled={!isLoading && !inputMessage.trim()}
                         className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 shadow-soft-sm shrink-0"
+                        title={isLoading ? '停止生成' : '发送'}
                     >
                         {isLoading ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <Square className="h-4 w-4" />
                         ) : (
                             <Send className="h-4 w-4" />
                         )}

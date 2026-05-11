@@ -10,6 +10,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from runtime import get_database_path, get_env_file_candidates
 
 
+DEFAULT_PROVIDER = "deepseek"
+DEFAULT_MODEL = "deepseek-v4-flash"
+
+
 for env_file in get_env_file_candidates():
     if env_file.exists():
         load_dotenv(env_file, override=False, encoding="utf-8")
@@ -29,8 +33,8 @@ class Settings(BaseSettings):
     openai_api_base: str = "https://api.openai.com/v1"
     
     # 默认配置
-    default_provider: str = "deepseek"
-    default_model: str = "deepseek-chat"
+    default_provider: str = DEFAULT_PROVIDER
+    default_model: str = DEFAULT_MODEL
     
     # 数据库
     database_url: str = ""
@@ -80,17 +84,3 @@ RUN_CONFIG_PRESETS = {
     }
 }
 
-
-# 模型成本（静态估算，单位 USD / 1K tokens）
-MODEL_PRICING = {
-    "deepseek-chat": {"prompt": 0.0005, "completion": 0.0010},
-    "gpt-5.4": {"prompt": 0.02, "completion": 0.06},
-    "gpt-5.4-pro": {"prompt": 0.03, "completion": 0.09},
-    "gpt-5.4-mini": {"prompt": 0.005, "completion": 0.015},
-    "gpt-5.4-nano": {"prompt": 0.001, "completion": 0.003},
-    "gemini-3.1-pro": {"prompt": 0.01, "completion": 0.03},
-    "gemini-3-flash": {"prompt": 0.002, "completion": 0.006},
-    "gemini-3.1-flash-lite": {"prompt": 0.0005, "completion": 0.0015},
-    "claude-opus-4.6": {"prompt": 0.015, "completion": 0.05},
-    "mock": {"prompt": 0.0, "completion": 0.0}
-}

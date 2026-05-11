@@ -7,6 +7,7 @@ from typing import Optional, Literal
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session as DBSession
 
+from config import DEFAULT_MODEL, DEFAULT_PROVIDER
 from database import get_db
 from models.session import Session, Message
 from services.ai_client import AIClient
@@ -23,8 +24,8 @@ router = APIRouter()
 async def stream_dialectic(
     topic: str,
     rounds: int = 5,
-    provider: str = "deepseek",
-    model: str = "deepseek-chat",
+    provider: str = DEFAULT_PROVIDER,
+    model: str = DEFAULT_MODEL,
     temperature: Optional[float] = None,
     seed: Optional[int] = None,
     preset: Optional[Literal["basic", "quality", "budget"]] = None,

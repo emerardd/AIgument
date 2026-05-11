@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer'
@@ -6,7 +6,7 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { useQAStore } from '@/stores/qaStore'
 import { qaAPI } from '@/services/api'
 import { CopyButton } from '@/components/ui/CopyButton'
-import { Loader2, Send, Trash2, BookOpen, Zap, Brain, Sparkles, ArrowUp } from 'lucide-react'
+import { Loader2, Send, Square, Trash2, BookOpen, Zap, Brain, Sparkles, ArrowUp } from 'lucide-react'
 
 type QAStyle = 'professional' | 'detailed' | 'concise'
 
@@ -15,6 +15,7 @@ export function QAView() {
     const [style, setStyle] = useState<QAStyle>('detailed')
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLInputElement>(null)
+    const abortRef = useRef<AbortController | null>(null)
 
     const { defaultProvider, defaultModel, streamMode } = useSettingsStore()
     const {
@@ -29,6 +30,13 @@ export function QAView() {
         setSessionId,
         clear,
     } = useQAStore()
+
+    useEffect(() => {
+        return () => {
+            abortRef.current?.abort()
+            setStoreLoading(false)
+        }
+    }, [setStoreLoading])
 
     const scrollToBottom = () => {
         setTimeout(() => {
@@ -78,6 +86,8 @@ export function QAView() {
         addMessage({ role: 'assistant', content: '' })
 
         if (streamMode) {
+            abortRef.current?.abort()
+            abortRef.current = new AbortController()
             await qaAPI.streamQA(
                 userQuestion,
                 (event) => {
@@ -100,8 +110,10 @@ export function QAView() {
                 defaultProvider,
                 defaultModel,
                 historyPayload,
-                sessionId ?? undefined
+                sessionId ?? undefined,
+                abortRef.current.signal
             )
+            abortRef.current = null
         } else {
             try {
                 const response = await qaAPI.askQuestion(
@@ -128,6 +140,12 @@ export function QAView() {
 
     const handleClear = () => {
         clear()
+    }
+
+    const handleCancel = () => {
+        abortRef.current?.abort()
+        abortRef.current = null
+        setStoreLoading(false)
     }
 
     return (
@@ -261,12 +279,13 @@ export function QAView() {
                             className="flex-1 border-0 bg-transparent focus-visible:ring-0 text-base shadow-none h-10"
                         />
                         <Button
-                            onClick={handleSubmit}
-                            disabled={!question.trim() || isLoading}
+                            onClick={isLoading ? handleCancel : handleSubmit}
+                            disabled={!isLoading && !question.trim()}
                             className="rounded-xl btn-primary shrink-0 w-10 h-10 p-0 transition-transform active:scale-90"
+                            title={isLoading ? '停止生成' : '发送'}
                         >
                             {isLoading ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <Square className="h-4 w-4" />
                             ) : (
                                 <Send className="h-4 w-4" />
                             )}

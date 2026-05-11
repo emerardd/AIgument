@@ -175,6 +175,7 @@ cython_debug/
 ersAdministratorDesktopAIgument*
 git
 .vscode/
+.claude/
 AGENTS.md
 
 # 忽略临时或生成的文件

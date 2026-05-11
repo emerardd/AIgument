@@ -63,7 +63,9 @@ class OpenAICompatProvider(BaseProvider):
         response = await self.client.chat.completions.create(
             **self._build_payload(messages, temperature, max_tokens, stream=False)
         )
-        return response.choices[0].message.content
+        if not response.choices:
+            raise ValueError("API returned empty choices")
+        return response.choices[0].message.content or ""
 
     async def chat_stream(self, messages, temperature=0.7, max_tokens=2000, **kwargs) -> AsyncGenerator[str, None]:
         stream = await self.client.chat.completions.create(

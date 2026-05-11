@@ -5,10 +5,14 @@
   "description": "AIgument desktop packaging workspace",
   "main": "desktop/main.js",
   "scripts": {
+    "dev": "powershell -ExecutionPolicy Bypass -File scripts/dev.ps1",
     "desktop:dev": "electron .",
+    "lint:frontend": "npm --prefix frontend run lint",
+    "test:backend": "powershell -ExecutionPolicy Bypass -File scripts/test-backend.ps1",
     "build:frontend": "npm --prefix frontend run build",
     "build:backend": "powershell -ExecutionPolicy Bypass -File scripts/build-backend.ps1",
     "build:desktop": "electron-builder --win nsis",
+    "verify": "npm run lint:frontend && npm run build:frontend && npm run test:backend",
     "package:win": "npm run build:frontend && npm run build:backend && npm run build:desktop"
   },
   "devDependencies": {

@@ -10,6 +10,7 @@ const providerOptions: { value: Provider; label: string; description: string }[]
     { value: 'openai', label: 'OpenAI', description: 'GPT 系列模型' },
     { value: 'gemini', label: 'Google Gemini', description: 'Google 最新 AI 模型' },
     { value: 'claude', label: 'Anthropic Claude', description: '安全可靠的 AI 助手' },
+    { value: 'mock', label: 'Mock', description: '离线演示和功能测试' },
 ]
 
 export default function SettingsPage() {
@@ -109,11 +110,7 @@ export default function SettingsPage() {
                                     return (
                                         <button
                                             key={option.value}
-                                            onClick={() => {
-                                                setDefaultProvider(option.value)
-                                                // 切换 provider 时设置默认模型
-                                                setDefaultModel(modelPresets[option.value][0])
-                                            }}
+                                            onClick={() => setDefaultProvider(option.value)}
                                             className={`
                                                 relative p-5 rounded-2xl text-left transition-all duration-300
                                                 ${isSelected

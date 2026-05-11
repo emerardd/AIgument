@@ -1,7 +1,10 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { modelPresets, type Provider } from '@/config/modelPresets'
 
-export type Provider = 'deepseek' | 'openai' | 'gemini' | 'claude'
+export type { Provider } from '@/config/modelPresets'
+
+const DEFAULT_PROVIDER: Provider = 'deepseek'
 
 interface SettingsState {
     darkMode: boolean
@@ -19,8 +22,8 @@ export const useSettingsStore = create<SettingsState>()(
     persist(
         (set, get) => ({
             darkMode: false,
-            defaultProvider: 'deepseek',
-            defaultModel: 'deepseek-chat',
+            defaultProvider: DEFAULT_PROVIDER,
+            defaultModel: modelPresets[DEFAULT_PROVIDER][0],
             streamMode: true,
 
             toggleDarkMode: () =>
@@ -35,7 +38,10 @@ export const useSettingsStore = create<SettingsState>()(
                     return { darkMode: newMode }
                 }),
 
-            setDefaultProvider: (provider) => set({ defaultProvider: provider }),
+            setDefaultProvider: (provider) => set({
+                defaultProvider: provider,
+                defaultModel: modelPresets[provider][0],
+            }),
             setDefaultModel: (model) => set({ defaultModel: model }),
             setStreamMode: (enabled) => set({ streamMode: enabled }),
 

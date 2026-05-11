@@ -1,7 +1,6 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { lazy, Suspense, useState, useRef, useCallback, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer'
 import { useAgentDebateStore } from '@/stores/agentDebateStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { debateAPI } from '@/services/api'
@@ -9,24 +8,31 @@ import type { DebateSettings, AgentStreamEvent, AgentThinking, RoundEvaluation }
 import { CopyButton } from '@/components/ui/CopyButton'
 import { ThinkingBubble } from './ThinkingBubble'
 import { EvaluationPanel, StandingsPanel, VerdictPanel } from './ScorePanel'
-import { ArgumentGraphView } from './ArgumentGraphView'
 import {
     Loader2, ThumbsUp, ThumbsDown, ArrowRight,
-    Brain, Eye, EyeOff, Sparkles, Settings2, Shuffle, ListChecks, Download
+    Brain, Eye, EyeOff, Sparkles, Settings2, Shuffle, ListChecks, Download, Square
 } from 'lucide-react'
 import type { Provider } from '@/stores/settingsStore'
 import { presetTopics } from '@/config/presetTopics'
 import { modelPresets } from '@/config/modelPresets'
 import { exportDebateMarkdown } from '@/utils/exportUtils'
 
+const MarkdownRenderer = lazy(() =>
+    import('@/components/ui/MarkdownRenderer').then((module) => ({ default: module.MarkdownRenderer }))
+)
+
+const ArgumentGraphView = lazy(() =>
+    import('./ArgumentGraphView').then((module) => ({ default: module.ArgumentGraphView }))
+)
+
 export function AgentDebateView() {
     const [inputTopic, setInputTopic] = useState('')
     const [rounds, setRounds] = useState(3)
     const [mixedMode, setMixedMode] = useState(false)
     const [proProvider, setProProvider] = useState<Provider>('deepseek')
-    const [proModel, setProModel] = useState('deepseek-chat')
+    const [proModel, setProModel] = useState(modelPresets.deepseek[0])
     const [conProvider, setConProvider] = useState<Provider>('openai')
-    const [conModel, setConModel] = useState('gpt-5.4-mini')
+    const [conModel, setConModel] = useState(modelPresets.openai[0])
     const [showTopics, setShowTopics] = useState(false)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const abortRef = useRef<AbortController | null>(null)
@@ -217,6 +223,12 @@ export function AgentDebateView() {
         )
     }
 
+    const handleCancel = () => {
+        abortRef.current?.abort()
+        abortRef.current = null
+        setLoading(false)
+    }
+
     // 按轮次组织消息
     const getMessagesForRound = (round: number) => {
         return messages.filter(msg => msg.round === round)
@@ -262,12 +274,13 @@ export function AgentDebateView() {
                         <ListChecks className="h-5 w-5" />
                     </button>
                     <Button
-                        onClick={handleStart}
-                        disabled={isLoading || !inputTopic.trim()}
+                        onClick={isLoading ? handleCancel : handleStart}
+                        disabled={!isLoading && !inputTopic.trim()}
                         className="h-11 px-6 rounded-xl btn-primary shrink-0 w-full sm:w-auto transition-transform active:scale-95"
+                        title={isLoading ? '停止生成' : '开始辩论'}
                     >
                         {isLoading ? (
-                            <Loader2 className="h-5 w-5 animate-spin" />
+                            <Square className="h-5 w-5" />
                         ) : (
                             <ArrowRight className="h-5 w-5" />
                         )}
@@ -414,6 +427,7 @@ export function AgentDebateView() {
                                         <option value="openai">OpenAI</option>
                                         <option value="gemini">Gemini</option>
                                         <option value="claude">Claude</option>
+                                        <option value="mock">Mock</option>
                                     </select>
                                     <select
                                         value={proModel}
@@ -443,6 +457,7 @@ export function AgentDebateView() {
                                         <option value="openai">OpenAI</option>
                                         <option value="gemini">Gemini</option>
                                         <option value="claude">Claude</option>
+                                        <option value="mock">Mock</option>
                                     </select>
                                     <select
                                         value={conModel}
@@ -559,7 +574,9 @@ export function AgentDebateView() {
                                             `}>
                                                 {msg.content ? (
                                                     <>
-                                                        <MarkdownRenderer content={msg.content} />
+                                                        <Suspense fallback={<p className="whitespace-pre-wrap">{msg.content}</p>}>
+                                                            <MarkdownRenderer content={msg.content} />
+                                                        </Suspense>
                                                         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                             <CopyButton text={msg.content} />
                                                         </div>
@@ -601,7 +618,13 @@ export function AgentDebateView() {
                 {/* 论点图谱分析 - 辩论完成后显示 */}
                 {verdict && sessionId && (
                     <div className="mt-8 animate-fade-in">
-                        <ArgumentGraphView sessionId={sessionId} />
+                        <Suspense fallback={
+                            <div className="flex items-center justify-center py-8">
+                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                            </div>
+                        }>
+                            <ArgumentGraphView sessionId={sessionId} />
+                        </Suspense>
                     </div>
                 )}
 

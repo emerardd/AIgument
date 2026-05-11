@@ -13,7 +13,7 @@ from schemas.debate import DebateRequest
 from services.debater import Debater
 from utils import get_api_key, sse_event, sse_response
 from utils.logger import get_logger
-from config import RUN_CONFIG_PRESETS
+from config import DEFAULT_MODEL, DEFAULT_PROVIDER, RUN_CONFIG_PRESETS
 
 logger = get_logger(__name__)
 
@@ -136,8 +136,8 @@ async def debate(request: DebateRequest, db: DBSession = Depends(get_db)):
 async def stream_debate(
     topic: str,
     rounds: int = 3,
-    provider: str = "deepseek",
-    model: str = "deepseek-chat",
+    provider: str = DEFAULT_PROVIDER,
+    model: str = DEFAULT_MODEL,
     temperature: Optional[float] = None,
     seed: Optional[int] = None,
     preset: Optional[Literal["basic", "quality", "budget"]] = None,

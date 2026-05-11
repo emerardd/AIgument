@@ -13,14 +13,15 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# 测试数据库（内存 SQLite）
+SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///:memory:"
+os.environ.setdefault("DATABASE_URL", SQLALCHEMY_TEST_DATABASE_URL)
+
 from main import app
 from database import Base, get_db
 import models.session  # noqa: F401 - register Session model
 import models.debate_record  # noqa: F401 - register DebateRecord model
 
-
-# 测试数据库（内存 SQLite）
-SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///:memory:"
 
 engine = create_engine(
     SQLALCHEMY_TEST_DATABASE_URL,
@@ -73,6 +74,6 @@ def sample_debate_request():
         "topic": "人工智能是否会取代人类工作",
         "rounds": 2,
         "provider": "deepseek",
-        "model": "deepseek-chat",
+        "model": "deepseek-v4-flash",
         "stream": False
     }

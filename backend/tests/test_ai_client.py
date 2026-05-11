@@ -16,9 +16,9 @@ from services.ai_client import AIClient
 
 class TestAIClientInit:
     def test_deepseek_init(self):
-        client = AIClient(provider="deepseek", model="deepseek-chat", api_key="test_key")
+        client = AIClient(provider="deepseek", model="deepseek-v4-flash", api_key="test_key")
         assert client.provider == "deepseek"
-        assert client.model == "deepseek-chat"
+        assert client.model == "deepseek-v4-flash"
         assert client._provider is not None
 
     def test_openai_init(self):

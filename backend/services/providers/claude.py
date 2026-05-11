@@ -41,6 +41,8 @@ class ClaudeProvider(BaseProvider):
             system=system_prompt,
             messages=claude_messages,
         )
+        if not response.content:
+            raise ValueError("Claude API returned empty content")
         return response.content[0].text
 
     async def chat_stream(self, messages, temperature=0.7, max_tokens=2000, **kwargs) -> AsyncGenerator[str, None]:

@@ -7,6 +7,7 @@ from typing import Optional, Literal
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session as DBSession
 
+from config import DEFAULT_MODEL, DEFAULT_PROVIDER
 from database import get_db
 from models.session import Session, Message
 from schemas.debate import DebateRequest
@@ -25,8 +26,8 @@ router = APIRouter()
 async def agent_stream_debate(
     topic: str,
     rounds: int = 3,
-    provider: str = "deepseek",
-    model: str = "deepseek-chat",
+    provider: str = DEFAULT_PROVIDER,
+    model: str = DEFAULT_MODEL,
     temperature: Optional[float] = None,
     seed: Optional[int] = None,
     preset: Optional[Literal["basic", "quality", "budget"]] = None,

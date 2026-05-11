@@ -7,7 +7,7 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { debateAPI } from '@/services/api'
 import type { DebateSettings, StreamEvent } from '@/types'
 import { CopyButton } from '@/components/ui/CopyButton'
-import { Loader2, ThumbsUp, ThumbsDown, ArrowRight } from 'lucide-react'
+import { Loader2, ThumbsUp, ThumbsDown, ArrowRight, Square } from 'lucide-react'
 
 export function DebateView() {
     const [inputTopic, setInputTopic] = useState('')
@@ -93,6 +93,12 @@ export function DebateView() {
         }
     }
 
+    const handleCancel = () => {
+        abortRef.current?.abort()
+        abortRef.current = null
+        setLoading(false)
+    }
+
     return (
         <div className="max-w-3xl mx-auto space-y-12">
             {/* Topic Input Section */}
@@ -111,12 +117,13 @@ export function DebateView() {
                         onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleStart()}
                     />
                     <Button
-                        onClick={handleStart}
-                        disabled={isLoading || !inputTopic.trim()}
+                        onClick={isLoading ? handleCancel : handleStart}
+                        disabled={!isLoading && !inputTopic.trim()}
                         className="h-11 px-6 rounded-xl btn-primary shrink-0 w-full sm:w-auto transition-transform active:scale-95"
+                        title={isLoading ? '停止生成' : '开始辩论'}
                     >
                         {isLoading ? (
-                            <Loader2 className="h-5 w-5 animate-spin" />
+                            <Square className="h-5 w-5" />
                         ) : (
                             <ArrowRight className="h-5 w-5" />
                         )}

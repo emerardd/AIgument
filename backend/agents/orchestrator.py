@@ -5,9 +5,8 @@ Debate orchestrator for the multi-agent flow.
 from datetime import datetime
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
-from config import MODEL_PRICING, RUN_CONFIG_PRESETS
+from config import DEFAULT_MODEL, DEFAULT_PROVIDER, RUN_CONFIG_PRESETS
 from memory.shared_memory import DebateMemory
-from utils.costing import estimate_cost
 from utils.logger import get_logger
 
 from .base_orchestrator import BaseOrchestrator
@@ -54,8 +53,8 @@ class DebateOrchestrator(BaseOrchestrator):
         self,
         topic: str,
         total_rounds: int = 3,
-        provider: str = "deepseek",
-        model: str = "deepseek-chat",
+        provider: str = DEFAULT_PROVIDER,
+        model: str = DEFAULT_MODEL,
         temperature: Optional[float] = None,
         seed: Optional[int] = None,
         preset: Optional[str] = None,
@@ -273,16 +272,6 @@ class DebateOrchestrator(BaseOrchestrator):
             for argument in self.memory_store.arguments
         ]
 
-        texts = [argument.content for argument in self.memory_store.arguments]
-        for evaluation in evaluations:
-            if evaluation.get("commentary"):
-                texts.append(evaluation.get("commentary"))
-        if verdict and verdict.get("summary"):
-            texts.append(verdict.get("summary"))
-
-        pricing = MODEL_PRICING.get(self.run_config.get("model"), MODEL_PRICING.get("mock", {}))
-        cost = estimate_cost(texts, pricing)
-
         return {
             "topic": self.topic,
             "created_at": turns[0]["timestamp"] if turns else None,
@@ -291,6 +280,5 @@ class DebateOrchestrator(BaseOrchestrator):
             "evaluations": evaluations,
             "verdict": verdict,
             "standings": self.memory_store.get_current_standings(),
-            "cost": cost,
             "message_history": self.message_bus.export_history(),
         }

@@ -11,6 +11,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session as DBSession
 
+from config import DEFAULT_MODEL, DEFAULT_PROVIDER
 from database import get_db
 from models.session import Session, Message
 from schemas.chat import ChatRequest, ChatMessage
@@ -49,7 +50,10 @@ def build_chat_messages(user_message: str, history: list[dict] | list[ChatMessag
 def _parse_history(history: str) -> list[dict]:
     if not history:
         return []
-    parsed = json.loads(history)
+    try:
+        parsed = json.loads(history)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"history must be valid JSON: {e}") from e
     if not isinstance(parsed, list):
         raise ValueError("history must be a JSON array")
     return parsed
@@ -136,8 +140,8 @@ async def chat(request: ChatRequest, db: DBSession = Depends(get_db)):
 async def stream_chat(
     message: str,
     history: str = "[]",
-    provider: str = "deepseek",
-    model: str = "deepseek-chat",
+    provider: str = DEFAULT_PROVIDER,
+    model: str = DEFAULT_MODEL,
     session_id: Optional[int] = None,
     db: DBSession = Depends(get_db)
 ):
@@ -214,8 +218,8 @@ async def stream_dual_chat(
     role_a: str = "乐观主义者",
     role_b: str = "现实主义者",
     turns: int = 3,
-    provider: str = "deepseek",
-    model: str = "deepseek-chat",
+    provider: str = DEFAULT_PROVIDER,
+    model: str = DEFAULT_MODEL,
     db: DBSession = Depends(get_db)
 ):
     """

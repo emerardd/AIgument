@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { Users, Play, MessageCircle, Sparkles, RefreshCw, ChevronDown, Check } from 'lucide-react'
+import { Users, Play, MessageCircle, Sparkles, ChevronDown, Check, Square } from 'lucide-react'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { chatAPI } from '@/services/api'
+import type { DualChatStreamEvent } from '@/services/api'
 
 interface Role {
     id: string
@@ -17,16 +18,6 @@ interface Message {
     content: string
     turn: number
     isComplete: boolean
-}
-
-interface DualChatStreamEvent {
-    type: 'session' | 'start' | 'message' | 'message_complete' | 'complete' | 'error'
-    session_id?: number
-    speaker?: string
-    role_id?: 'a' | 'b'
-    content?: string
-    turn?: number
-    error?: string
 }
 
 export function DualChatView() {
@@ -117,6 +108,13 @@ export function DualChatView() {
             setIsRunning(false)
             setCurrentSpeaker('')
         }
+    }
+
+    const stopConversation = () => {
+        abortRef.current?.abort()
+        abortRef.current = null
+        setIsRunning(false)
+        setCurrentSpeaker('')
     }
 
     const handleEvent = (event: DualChatStreamEvent) => {
@@ -221,12 +219,13 @@ export function DualChatView() {
                             disabled={isRunning}
                         />
                         <button
-                            onClick={startConversation}
-                            disabled={isRunning || !topic.trim()}
+                            onClick={isRunning ? stopConversation : startConversation}
+                            disabled={!isRunning && !topic.trim()}
                             className="h-11 px-6 rounded-xl btn-primary shrink-0 transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            title={isRunning ? '停止生成' : '开始对话'}
                         >
                             {isRunning ? (
-                                <RefreshCw className="h-5 w-5 animate-spin" />
+                                <Square className="h-5 w-5" />
                             ) : (
                                 <>
                                     <Play className="h-5 w-5" />

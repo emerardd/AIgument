@@ -1,20 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
-import { Brain, Lightbulb, BookOpen, HelpCircle, Send, RefreshCw, ChevronRight, Sparkles } from 'lucide-react'
+import { Brain, Lightbulb, BookOpen, HelpCircle, Send, RefreshCw, ChevronRight, Sparkles, Square } from 'lucide-react'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { qaAPI } from '@/services/api'
+import type { ChatHistoryItem, SocraticQAStreamEvent } from '@/services/api'
 
 interface QAMode {
     id: string
     name: string
     description: string
     icon: string
-}
-
-interface SocraticQAStreamEvent {
-    type: 'session' | 'content' | 'complete' | 'error'
-    session_id?: number
-    content?: string
-    error?: string
 }
 
 const MODE_ICONS: Record<string, React.ReactNode> = {
@@ -30,7 +24,7 @@ export function SocraticQAView() {
     const [response, setResponse] = useState('')
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [history, setHistory] = useState<Array<{ role: string; content: string }>>([])
+    const [history, setHistory] = useState<ChatHistoryItem[]>([])
     const [sessionId, setSessionId] = useState<number | null>(null)
     const responseRef = useRef<HTMLDivElement>(null)
     const abortRef = useRef<AbortController | null>(null)
@@ -111,6 +105,12 @@ export function SocraticQAView() {
         }
     }
 
+    const cancelQuestion = () => {
+        abortRef.current?.abort()
+        abortRef.current = null
+        setIsLoading(false)
+    }
+
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault()
@@ -184,12 +184,13 @@ export function SocraticQAView() {
                             disabled={isLoading}
                         />
                         <button
-                            onClick={askQuestion}
-                            disabled={isLoading || !question.trim()}
+                            onClick={isLoading ? cancelQuestion : askQuestion}
+                            disabled={!isLoading && !question.trim()}
                             className="absolute right-3 bottom-3 p-2.5 rounded-lg btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={isLoading ? '停止生成' : '发送'}
                         >
                             {isLoading ? (
-                                <RefreshCw className="w-5 h-5 animate-spin" />
+                                <Square className="w-5 h-5" />
                             ) : (
                                 <Send className="w-5 h-5" />
                             )}

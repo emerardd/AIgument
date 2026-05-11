@@ -1,6 +1,10 @@
 import { create } from 'zustand'
 import type { HistoryItem } from '@/types'
+import type { SessionType } from '@/types'
 import { historyAPI } from '@/services/api'
+
+const HISTORY_PAGE_SIZE = 20
+type HistoryFilter = SessionType | 'all'
 
 interface SessionDetail {
     session_id: number
@@ -17,14 +21,22 @@ interface HistoryState {
     items: HistoryItem[]
     selectedSession: SessionDetail | null
     isLoading: boolean
+    isLoadingMore: boolean
     isDetailLoading: boolean
     error: string | null
-    filter: 'all' | 'debate' | 'dialectic' | 'chat' | 'qa' | 'dual_chat' | 'qa_socratic'
+    filter: HistoryFilter
+    searchQuery: string
+    total: number
+    hasMore: boolean
+    limit: number
+    offset: number
 
     fetchHistory: () => Promise<void>
+    loadMore: () => Promise<void>
     fetchSessionDetail: (id: number) => Promise<void>
     deleteSession: (id: number) => Promise<void>
-    setFilter: (filter: 'all' | 'debate' | 'dialectic' | 'chat' | 'qa' | 'dual_chat' | 'qa_socratic') => void
+    setFilter: (filter: HistoryFilter) => void
+    setSearchQuery: (query: string) => void
     clearSelectedSession: () => void
 }
 
@@ -32,19 +44,56 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     items: [],
     selectedSession: null,
     isLoading: false,
+    isLoadingMore: false,
     isDetailLoading: false,
     error: null,
     filter: 'all',
+    searchQuery: '',
+    total: 0,
+    hasMore: false,
+    limit: HISTORY_PAGE_SIZE,
+    offset: 0,
 
     fetchHistory: async () => {
-        set({ isLoading: true, error: null })
+        const { filter, limit, searchQuery } = get()
+        set({ isLoading: true, error: null, offset: 0, hasMore: false })
         try {
-            const response = await historyAPI.getHistory(get().filter)
-            set({ items: response.data.history || [], isLoading: false })
+            const response = await historyAPI.getHistory(filter, limit, 0, searchQuery)
+            const history = response.data.history || []
+            set({
+                items: history,
+                total: response.data.total,
+                hasMore: response.data.has_more,
+                offset: history.length,
+                isLoading: false,
+            })
         } catch (error) {
             set({
                 error: error instanceof Error ? error.message : '获取历史记录失败',
                 isLoading: false,
+            })
+        }
+    },
+
+    loadMore: async () => {
+        const { filter, limit, offset, hasMore, isLoadingMore, searchQuery } = get()
+        if (!hasMore || isLoadingMore) return
+
+        set({ isLoadingMore: true, error: null })
+        try {
+            const response = await historyAPI.getHistory(filter, limit, offset, searchQuery)
+            const history = response.data.history || []
+            set((state) => ({
+                items: [...state.items, ...history],
+                total: response.data.total,
+                hasMore: response.data.has_more,
+                offset: offset + history.length,
+                isLoadingMore: false,
+            }))
+        } catch (error) {
+            set({
+                error: error instanceof Error ? error.message : '加载更多历史记录失败',
+                isLoadingMore: false,
             })
         }
     },
@@ -82,7 +131,12 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     },
 
     setFilter: (filter) => {
-        set({ filter })
+        set({ filter, items: [], total: 0, offset: 0, hasMore: false })
+        get().fetchHistory()
+    },
+
+    setSearchQuery: (searchQuery) => {
+        set({ searchQuery, items: [], total: 0, offset: 0, hasMore: false })
         get().fetchHistory()
     },
 

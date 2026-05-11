@@ -12,6 +12,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session as DBSession
 
+from config import DEFAULT_MODEL, DEFAULT_PROVIDER
 from database import get_db
 from models.session import Session, Message
 from schemas.qa import QARequest
@@ -64,7 +65,10 @@ def build_qa_messages(question: str, style: str, history: list[dict]) -> list[di
 def _parse_history(history: str) -> list[dict]:
     if not history:
         return []
-    parsed = json.loads(history)
+    try:
+        parsed = json.loads(history)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"history must be valid JSON: {e}") from e
     if not isinstance(parsed, list):
         raise ValueError("history must be a JSON array")
     return parsed
@@ -151,8 +155,8 @@ async def stream_qa(
     question: str,
     style: str = "professional",
     history: str = "[]",
-    provider: str = "deepseek",
-    model: str = "deepseek-chat",
+    provider: str = DEFAULT_PROVIDER,
+    model: str = DEFAULT_MODEL,
     session_id: Optional[int] = None,
     db: DBSession = Depends(get_db)
 ):
@@ -237,8 +241,8 @@ def get_qa_modes():
 async def socratic_qa(
     question: str,
     mode: str = "hybrid",  # socratic, structured, hybrid
-    provider: str = "deepseek",
-    model: str = "deepseek-chat",
+    provider: str = DEFAULT_PROVIDER,
+    model: str = DEFAULT_MODEL,
     session_id: Optional[int] = None,
     db: DBSession = Depends(get_db)
 ):
@@ -306,8 +310,8 @@ async def stream_socratic_qa(
     question: str,
     mode: str = "hybrid",
     history: str = "[]",
-    provider: str = "deepseek",
-    model: str = "deepseek-chat",
+    provider: str = DEFAULT_PROVIDER,
+    model: str = DEFAULT_MODEL,
     session_id: Optional[int] = None,
     db: DBSession = Depends(get_db)
 ):
@@ -377,8 +381,8 @@ async def stream_socratic_qa(
 async def qa_follow_up(
     session_id: int,
     response: str,
-    provider: str = "deepseek",
-    model: str = "deepseek-chat",
+    provider: str = DEFAULT_PROVIDER,
+    model: str = DEFAULT_MODEL,
     db: DBSession = Depends(get_db)
 ):
     """

@@ -1,26 +1,43 @@
 import { useEffect } from 'react'
+import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { useHistoryStore } from '@/stores/historyStore'
 import { useToast } from '@/hooks/useToast'
 import { HistoryListSkeleton } from '@/components/ui/Skeleton'
 import { downloadSessionExport } from '@/utils/download'
-import { Trash2, Eye, Download, Calendar, MessageSquare } from 'lucide-react'
+import { Trash2, Eye, Download, Calendar, MessageSquare, Loader2, Search, X } from 'lucide-react'
 
 interface HistoryListProps {
     onViewDetail: (id: number) => void
 }
 
 export function HistoryList({ onViewDetail }: HistoryListProps) {
-    const { items, isLoading, error, filter, fetchHistory, deleteSession, setFilter } = useHistoryStore()
+    const {
+        items,
+        total,
+        hasMore,
+        isLoading,
+        isLoadingMore,
+        error,
+        filter,
+        searchQuery,
+        fetchHistory,
+        loadMore,
+        deleteSession,
+        setFilter,
+        setSearchQuery,
+    } = useHistoryStore()
     const toast = useToast()
+    const [searchText, setSearchText] = useState(searchQuery)
 
     useEffect(() => {
         fetchHistory()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
-    const handleExport = async (id: number, format: 'md' | 'json') => {
+    const handleExport = async (id: number, format: 'md' | 'json' | 'txt') => {
         try {
             await downloadSessionExport(id, format)
             toast.success(`导出成功: session_${id}.${format}`)
@@ -50,6 +67,16 @@ export function HistoryList({ onViewDetail }: HistoryListProps) {
             qa_socratic: { text: '苏格拉底问答', color: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-300' },
         }
         return labels[type] || { text: type, color: 'bg-gray-100 text-gray-700' }
+    }
+
+    const handleSearchSubmit = (e: React.FormEvent) => {
+        e.preventDefault()
+        setSearchQuery(searchText)
+    }
+
+    const handleClearSearch = () => {
+        setSearchText('')
+        setSearchQuery('')
     }
 
     if (isLoading) {
@@ -93,12 +120,37 @@ export function HistoryList({ onViewDetail }: HistoryListProps) {
                 ))}
             </div>
 
+            <form onSubmit={handleSearchSubmit} className="flex gap-2">
+                <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        value={searchText}
+                        onChange={(e) => setSearchText(e.target.value)}
+                        placeholder="按主题搜索历史记录..."
+                        className="pl-9 pr-9"
+                    />
+                    {searchText && (
+                        <button
+                            type="button"
+                            onClick={handleClearSearch}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            title="清除搜索"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    )}
+                </div>
+                <Button type="submit" variant="outline">
+                    搜索
+                </Button>
+            </form>
+
             {/* 列表 */}
             {items.length === 0 ? (
                 <Card className="p-8 text-center">
                     <div className="text-gray-400">
                         <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p>暂无历史记录</p>
+                        <p>{searchQuery ? '没有匹配的历史记录' : '暂无历史记录'}</p>
                     </div>
                 </Card>
             ) : (
@@ -169,6 +221,28 @@ export function HistoryList({ onViewDetail }: HistoryListProps) {
                             </Card>
                         )
                     })}
+                    <div className="flex flex-col items-center gap-3 pt-2">
+                        <div className="text-xs text-muted-foreground">
+                            已显示 {items.length} / {total} 条记录
+                        </div>
+                        {hasMore && (
+                            <Button
+                                variant="outline"
+                                onClick={loadMore}
+                                disabled={isLoadingMore}
+                                className="min-w-36"
+                            >
+                                {isLoadingMore ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        加载中
+                                    </>
+                                ) : (
+                                    '加载更多'
+                                )}
+                            </Button>
+                        )}
+                    </div>
                 </div>
             )}
         </div>

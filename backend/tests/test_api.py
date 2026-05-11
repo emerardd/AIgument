@@ -69,6 +69,103 @@ class TestHistoryAPI:
         assert socratic_data["total"] == 1
         assert socratic_data["history"][0]["type"] == "qa_socratic"
 
+    def test_get_history_rejects_unknown_type(self, client):
+        """测试历史记录拒绝未知类型，避免拼写错误被静默吞掉"""
+        response = client.get("/api/history", params={"type": "unknown"})
+        assert response.status_code == 400
+
+    def test_get_history_pagination(self, client, db_session):
+        """测试历史记录分页元数据和偏移查询"""
+        from models.session import Session
+
+        db_session.add_all([
+            Session(session_type="chat", topic=f"分页测试 {idx}")
+            for idx in range(25)
+        ])
+        db_session.commit()
+
+        first_page = client.get("/api/history", params={"limit": 10, "offset": 0})
+        assert first_page.status_code == 200
+        first_data = first_page.json()
+        assert len(first_data["history"]) == 10
+        assert first_data["total"] == 25
+        assert first_data["limit"] == 10
+        assert first_data["offset"] == 0
+        assert first_data["has_more"] is True
+
+        third_page = client.get("/api/history", params={"limit": 10, "offset": 20})
+        assert third_page.status_code == 200
+        third_data = third_page.json()
+        assert len(third_data["history"]) == 5
+        assert third_data["total"] == 25
+        assert third_data["has_more"] is False
+
+    def test_get_history_search_by_topic(self, client, db_session):
+        """测试历史记录按主题搜索并兼容类型过滤"""
+        from models.session import Session
+
+        db_session.add_all([
+            Session(session_type="chat", topic="机器学习入门"),
+            Session(session_type="qa", topic="机器学习问答"),
+            Session(session_type="chat", topic="远程办公讨论"),
+        ])
+        db_session.commit()
+
+        response = client.get("/api/history", params={"q": "机器学习"})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 2
+        assert {item["topic"] for item in data["history"]} == {"机器学习入门", "机器学习问答"}
+
+        typed_response = client.get("/api/history", params={"q": "机器学习", "type": "qa"})
+        assert typed_response.status_code == 200
+        typed_data = typed_response.json()
+        assert typed_data["total"] == 1
+        assert typed_data["history"][0]["topic"] == "机器学习问答"
+
+    def test_export_session_formats(self, client, db_session):
+        """测试会话支持 JSON、Markdown 和纯文本导出"""
+        from models.session import Session, Message
+
+        session = Session(session_type="chat", topic="导出测试")
+        db_session.add(session)
+        db_session.flush()
+        db_session.add_all([
+            Message(session_id=session.id, role="user", content="你好"),
+            Message(session_id=session.id, role="assistant", content="你好，有什么可以帮你？"),
+        ])
+        db_session.commit()
+
+        json_response = client.get(f"/api/history/{session.id}/export", params={"format": "json"})
+        assert json_response.status_code == 200
+        assert "application/json" in json_response.headers["content-type"]
+        json_data = json_response.json()
+        assert json_data["topic"] == "导出测试"
+        assert json_data["messages"][0]["content"] == "你好"
+
+        markdown_response = client.get(f"/api/history/{session.id}/export", params={"format": "markdown"})
+        assert markdown_response.status_code == 200
+        assert "text/markdown" in markdown_response.headers["content-type"]
+        assert "# 导出测试" in markdown_response.text
+        assert "### 👤 用户" in markdown_response.text
+
+        txt_response = client.get(f"/api/history/{session.id}/export", params={"format": "txt"})
+        assert txt_response.status_code == 200
+        assert "text/plain" in txt_response.headers["content-type"]
+        assert "[用户]" in txt_response.text
+        assert "你好，有什么可以帮你？" in txt_response.text
+
+    def test_export_session_rejects_unknown_format(self, client, db_session):
+        """测试导出接口拒绝未知格式，避免静默返回错误内容"""
+        from models.session import Session
+
+        session = Session(session_type="chat", topic="导出测试")
+        db_session.add(session)
+        db_session.commit()
+
+        response = client.get(f"/api/history/{session.id}/export", params={"format": "docx"})
+        assert response.status_code == 400
+
 
 class TestDebateGraphAPI:
     """测试辩论图谱 API"""

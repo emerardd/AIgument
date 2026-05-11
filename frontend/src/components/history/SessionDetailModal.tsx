@@ -8,7 +8,11 @@ import { useQAStore } from '@/stores/qaStore'
 import { useToast } from '@/hooks/useToast'
 import { downloadSessionExport } from '@/utils/download'
 import { X, Loader2, Download, Calendar, MessageCircle } from 'lucide-react'
-import type { ChatMessage } from '@/types'
+
+type RestorableMessage = {
+    role: 'user' | 'assistant'
+    content: string
+}
 
 interface SessionDetailModalProps {
     sessionId: number
@@ -35,7 +39,7 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
 
     if (!isOpen) return null
 
-    const handleExport = async (format: 'md' | 'json') => {
+    const handleExport = async (format: 'md' | 'json' | 'txt') => {
         try {
             await downloadSessionExport(sessionId, format)
             toast.success(`导出成功: session_${sessionId}.${format}`)
@@ -96,7 +100,7 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
         const messages = selectedSession.messages
 
         if (sessionType === 'chat' || sessionType === 'qa') {
-            const chatMessages: ChatMessage[] = messages
+            const restorableMessages: RestorableMessage[] = messages
                 .filter(msg => msg.role === 'user' || msg.role === 'assistant')
                 .map(msg => ({
                     role: msg.role as 'user' | 'assistant',
@@ -104,9 +108,9 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
                 }))
 
             if (sessionType === 'chat') {
-                restoreChatSession(chatMessages, selectedSession.session_id)
+                restoreChatSession(restorableMessages, selectedSession.session_id)
             } else {
-                restoreQASession(chatMessages, selectedSession.session_id)
+                restoreQASession(restorableMessages, selectedSession.session_id)
             }
             onClose()
             navigate(sessionType === 'chat' ? '/chat' : '/qa')
@@ -147,6 +151,10 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
                         <Button variant="outline" size="sm" onClick={() => handleExport('json')}>
                             <Download className="h-4 w-4 mr-1" />
                             JSON
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleExport('txt')}>
+                            <Download className="h-4 w-4 mr-1" />
+                            TXT
                         </Button>
                         <Button variant="ghost" size="sm" onClick={onClose}>
                             <X className="h-5 w-5" />

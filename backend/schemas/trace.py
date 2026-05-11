@@ -14,15 +14,6 @@ class RunConfig(BaseModel):
     preset: Optional[str] = Field(default=None, description="预设配置")
 
 
-class CostEstimate(BaseModel):
-    prompt_tokens: int = Field(default=0, description="Prompt token 数")
-    completion_tokens: int = Field(default=0, description="Completion token 数")
-    total_tokens: int = Field(default=0, description="总 token 数")
-    estimated_usd: float = Field(default=0.0, description="估算成本（USD）")
-    price_per_1k_prompt: float = Field(default=0.0, description="Prompt 价格/1K")
-    price_per_1k_completion: float = Field(default=0.0, description="Completion 价格/1K")
-
-
 class AgentTurn(BaseModel):
     round: int = Field(description="轮次")
     side: str = Field(description="立场: pro/con")
@@ -43,5 +34,4 @@ class DebateTrace(BaseModel):
     evaluations: Optional[List[Dict[str, Any]]] = Field(default=None, description="评审结果")
     verdict: Optional[Dict[str, Any]] = Field(default=None, description="最终裁决")
     standings: Optional[Dict[str, Any]] = Field(default=None, description="比分")
-    cost: Optional[CostEstimate] = Field(default=None, description="成本估算")
     message_history: Optional[List[Dict[str, Any]]] = Field(default=None, description="消息历史")

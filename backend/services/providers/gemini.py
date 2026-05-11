@@ -65,6 +65,8 @@ class GeminiProvider(BaseProvider):
             contents=contents,
             config=config,
         )
+        if not response.text:
+            raise ValueError("Gemini API returned empty response")
         return response.text
 
     async def chat_stream(self, messages, temperature=0.7, max_tokens=2000, **kwargs) -> AsyncGenerator[str, None]:

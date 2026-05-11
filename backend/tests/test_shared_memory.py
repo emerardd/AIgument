@@ -105,7 +105,7 @@ class TestDebateMemory:
         assert "论点一" in transcript
 
     def test_run_config(self, memory):
-        config = {"provider": "deepseek", "model": "deepseek-chat"}
+        config = {"provider": "deepseek", "model": "deepseek-v4-flash"}
         memory.set_run_config(config)
         assert memory.get("run_config") == config
 

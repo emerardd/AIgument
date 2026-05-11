@@ -12,22 +12,61 @@ from models.session import Session, Message
 
 router = APIRouter(prefix="/api", tags=["history"])
 
+VALID_HISTORY_TYPES = {"all", "debate", "chat", "qa", "dialectic", "dual_chat", "qa_socratic"}
+
+
+def get_export_role_label(role: str, *, markdown: bool = False) -> str:
+    """Return a user-facing role label for exported session content."""
+    labels = {
+        "user": "用户",
+        "assistant": "AI",
+        "正方": "正方",
+        "反方": "反方",
+        "正题": "正题",
+        "反题": "反题",
+        "合题": "合题",
+    }
+    label = labels.get(role, role)
+
+    if not markdown:
+        return label
+
+    markdown_labels = {
+        "user": "👤 用户",
+        "assistant": "🤖 AI",
+        "正方": "👍 正方",
+        "反方": "👎 反方",
+    }
+    return markdown_labels.get(role, label)
+
+
+def validate_history_type(session_type: str) -> str:
+    normalized_type = session_type.strip()
+    if normalized_type not in VALID_HISTORY_TYPES:
+        raise HTTPException(status_code=400, detail="不支持的历史记录类型")
+    return normalized_type
+
 
 @router.get("/history")
 async def get_history(
     type: str = "all",
     limit: int = 100,
     offset: int = 0,
+    q: str = "",
     db: DBSession = Depends(get_db)
 ):
     """获取历史记录列表（支持分页）"""
     try:
+        type = validate_history_type(type)
         limit = max(1, min(limit, 500))
         offset = max(0, offset)
+        search_term = q.strip()
 
         base_query = db.query(Session)
         if type != "all":
             base_query = base_query.filter(Session.session_type == type)
+        if search_term:
+            base_query = base_query.filter(Session.topic.ilike(f"%{search_term}%"))
 
         total = base_query.count()
 
@@ -41,6 +80,8 @@ async def get_history(
 
         if type != "all":
             query = query.filter(Session.session_type == type)
+        if search_term:
+            query = query.filter(Session.topic.ilike(f"%{search_term}%"))
 
         query = query.order_by(Session.created_at.desc()).offset(offset).limit(limit)
         results = query.all()
@@ -63,6 +104,8 @@ async def get_history(
             "has_more": offset + len(history) < total,
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -135,6 +178,15 @@ async def export_session(
 ):
     """导出会话"""
     try:
+        normalized_format = format.lower()
+        if normalized_format == "md":
+            normalized_format = "markdown"
+        elif normalized_format == "text":
+            normalized_format = "txt"
+
+        if normalized_format not in {"json", "markdown", "txt"}:
+            raise HTTPException(status_code=400, detail="不支持的导出格式")
+
         session = db.query(Session).filter(Session.id == session_id).first()
         if not session:
             raise HTTPException(status_code=404, detail="会话不存在")
@@ -143,7 +195,7 @@ async def export_session(
             Message.session_id == session_id
         ).order_by(Message.created_at).all()
 
-        if format == "markdown":
+        if normalized_format == "markdown":
             # Markdown格式
             content = f"# {session.topic or '会话记录'}\n\n"
             content += f"类型: {session.session_type}\n"
@@ -151,15 +203,7 @@ async def export_session(
             content += "---\n\n"
 
             for msg in messages:
-                role_label = msg.role
-                if msg.role == "user":
-                    role_label = "👤 用户"
-                elif msg.role == "assistant":
-                    role_label = "🤖 AI"
-                elif msg.role == "正方":
-                    role_label = "👍 正方"
-                elif msg.role == "反方":
-                    role_label = "👎 反方"
+                role_label = get_export_role_label(msg.role, markdown=True)
 
                 content += f"### {role_label}\n\n{msg.content}\n\n"
 
@@ -168,6 +212,30 @@ async def export_session(
                 media_type="text/markdown",
                 headers={
                     "Content-Disposition": f"attachment; filename=session_{session_id}.md"
+                }
+            )
+
+        if normalized_format == "txt":
+            lines = [
+                session.topic or "会话记录",
+                f"类型: {session.session_type}",
+                f"时间: {session.created_at.isoformat() if session.created_at else 'N/A'}",
+                "-" * 40,
+                "",
+            ]
+            for msg in messages:
+                role_label = get_export_role_label(msg.role)
+                lines.extend([
+                    f"[{role_label}]",
+                    msg.content or "",
+                    "",
+                ])
+
+            return Response(
+                content="\n".join(lines),
+                media_type="text/plain; charset=utf-8",
+                headers={
+                    "Content-Disposition": f"attachment; filename=session_{session_id}.txt"
                 }
             )
 

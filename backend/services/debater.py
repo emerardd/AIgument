@@ -5,6 +5,7 @@ Legacy debate service kept for compatibility.
 import asyncio
 from typing import AsyncGenerator, Optional, Union
 
+from config import DEFAULT_MODEL, DEFAULT_PROVIDER
 from .ai_client import AIClient
 from utils.logger import get_logger
 
@@ -18,8 +19,8 @@ class Debater:
         self,
         name: str,
         system_prompt: str,
-        provider: str = "deepseek",
-        model: str = "deepseek-chat",
+        provider: str = DEFAULT_PROVIDER,
+        model: str = DEFAULT_MODEL,
         api_key: Optional[str] = None,
         temperature: float = 0.7,
         seed: Optional[int] = None

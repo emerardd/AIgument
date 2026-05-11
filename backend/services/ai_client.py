@@ -5,6 +5,7 @@ Unified async AI client with lightweight retries.
 import asyncio
 from typing import AsyncGenerator, Optional
 
+from config import DEFAULT_MODEL, DEFAULT_PROVIDER
 from exceptions import AIClientException
 from services.providers import BaseProvider, create_provider
 from utils.logger import get_logger
@@ -18,8 +19,8 @@ class AIClient:
 
     def __init__(
         self,
-        provider: str = "deepseek",
-        model: str = "deepseek-chat",
+        provider: str = DEFAULT_PROVIDER,
+        model: str = DEFAULT_MODEL,
         api_key: Optional[str] = None,
         seed: Optional[int] = None,
         retry_attempts: int = 2,

@@ -1,8 +1,9 @@
-import type { Provider } from '@/stores/settingsStore'
+export type Provider = 'deepseek' | 'openai' | 'gemini' | 'claude' | 'mock'
 
 export const modelPresets: Record<Provider, string[]> = {
-    deepseek: ['deepseek-chat', 'deepseek-reasoner'],
-    openai: ['gpt-5.4', 'gpt-5.4-pro', 'gpt-5.4-mini', 'gpt-5.4-nano'],
+    deepseek: ['deepseek-v4-flash', 'deepseek-v4-pro'],
+    openai: ['gpt-5.5'],
     gemini: ['gemini-3.1-pro', 'gemini-3-flash', 'gemini-3.1-flash-lite'],
-    claude: ['claude-opus-4.6', 'claude-sonnet-4.6'],
+    claude: ['claude-opus-4.7'],
+    mock: ['mock'],
 }

@@ -44,10 +44,10 @@
 
 ### 🔌 多模型支持
 
-- DeepSeek (deepseek-chat, deepseek-reasoner)
-- OpenAI (gpt-5.2, gpt-5-mini, gpt-5-nano, gpt-5.2-pro, gpt-5, gpt-4.1)
-- Google Gemini (gemini-2.5-flash, gemini-2.5-pro, gemini-3-flash-preview, gemini-3.1-pro-preview)
-- Anthropic Claude (claude-opus-4.6, claude-sonnet-4.6)
+- DeepSeek (deepseek-v4-flash, deepseek-v4-pro)
+- OpenAI (gpt-5.5)
+- Google Gemini (gemini-3.1-pro, gemini-3-flash, gemini-3.1-flash-lite)
+- Anthropic Claude (claude-opus-4.7)
 
 
 
@@ -180,6 +180,11 @@ npm install
 
 ### 4. 启动应用
 
+**同时启动前后端**：
+```bash
+npm run dev
+```
+
 **启动后端**（端口 5000）：
 ```bash
 cd backend
@@ -196,6 +201,30 @@ pnpm dev --host
 
 - **前端界面**：http://localhost:3000
 - **API 文档**：http://localhost:5000/docs
+
+## ✅ 开发验证
+
+在提交改动前，建议从项目根目录执行一次完整验证：
+
+```powershell
+npm run verify
+```
+
+它会依次执行：
+
+```powershell
+npm run lint:frontend
+npm run build:frontend
+npm run test:backend
+```
+
+也可以按需单独运行：
+
+```powershell
+npm run lint:frontend
+npm run build:frontend
+npm run test:backend
+```
 
 ## 📦 打包成 Windows 可执行软件
 

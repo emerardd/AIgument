@@ -6,6 +6,8 @@
 from pydantic import BaseModel, Field
 from typing import Optional, Literal
 
+from config import DEFAULT_MODEL, DEFAULT_PROVIDER
+
 
 class DebateRequest(BaseModel):
     """
@@ -27,13 +29,13 @@ class DebateRequest(BaseModel):
         description="辩论轮次数量"
     )
     provider: Literal["deepseek", "openai", "gemini", "claude", "mock"] = Field(
-        default="deepseek", 
+        default=DEFAULT_PROVIDER, 
         description="AI 提供商"
     )
     model: str = Field(
-        default="deepseek-chat", 
+        default=DEFAULT_MODEL, 
         description="使用的模型名称",
-        json_schema_extra={"example": "deepseek-chat"}
+        json_schema_extra={"example": DEFAULT_MODEL}
     )
     stream: bool = Field(
         default=True, 
@@ -81,8 +83,8 @@ class DebateRequest(BaseModel):
                 {
                     "topic": "人工智能是否会取代人类工作",
                     "rounds": 3,
-                    "provider": "deepseek",
-                    "model": "deepseek-chat",
+                    "provider": DEFAULT_PROVIDER,
+                    "model": DEFAULT_MODEL,
                     "stream": True
                 }
             ]
