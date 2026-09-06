@@ -5,10 +5,20 @@
 """
 import re
 import math
+from dataclasses import dataclass
 from typing import Dict, Any, List
 import statistics
 
 from schemas.evaluation import EvaluationResult, ScoreBreakdown, EvaluationCompareResult
+
+
+@dataclass(frozen=True)
+class _ScoreSummary:
+    dimensions: ScoreBreakdown
+    consistency: float
+    pro_average: float | None = None
+    con_average: float | None = None
+    winner: str | None = None
 
 
 def _avg(values: List[float]) -> float:
@@ -30,7 +40,7 @@ def _extract_dimension_scores(evaluations: List[Dict[str, Any]], key: str) -> Li
     return values
 
 
-def _extract_turn_score(turns: List[Dict[str, Any]]) -> tuple[ScoreBreakdown, float, float | None, float | None, str | None] | None:
+def _extract_turn_score(turns: List[Dict[str, Any]]) -> _ScoreSummary | None:
     scored_turns = []
     for turn in turns:
         score = turn.get("score")
@@ -75,10 +85,7 @@ def _extract_turn_score(turns: List[Dict[str, Any]]) -> tuple[ScoreBreakdown, fl
         if side in side_totals:
             side_totals[side].append(turn_total)
 
-    if len(turn_totals) < 2:
-        consistency = 0.0
-    else:
-        consistency = round(_clamp(10 - statistics.pstdev(turn_totals) / 2), 2)
+    consistency = _consistency(turn_totals)
 
     pro_average = _avg(side_totals["pro"]) if side_totals["pro"] else None
     con_average = _avg(side_totals["con"]) if side_totals["con"] else None
@@ -86,7 +93,7 @@ def _extract_turn_score(turns: List[Dict[str, Any]]) -> tuple[ScoreBreakdown, fl
     if pro_average is not None and con_average is not None:
         winner = "pro" if pro_average > con_average else ("con" if con_average > pro_average else "tie")
 
-    return (
+    return _ScoreSummary(
         ScoreBreakdown(
             logic=logic,
             evidence=evidence,
@@ -101,19 +108,35 @@ def _extract_turn_score(turns: List[Dict[str, Any]]) -> tuple[ScoreBreakdown, fl
     )
 
 
-def _compute_consistency(evaluations: List[Dict[str, Any]]) -> float:
-    pro_totals = []
-    con_totals = []
-    for e in evaluations:
-        pro_score = e.get("pro_score", {}) if isinstance(e.get("pro_score"), dict) else {}
-        con_score = e.get("con_score", {}) if isinstance(e.get("con_score"), dict) else {}
-        pro_totals.append(sum(pro_score.values()) if pro_score else 0)
-        con_totals.append(sum(con_score.values()) if con_score else 0)
-    totals = pro_totals + con_totals
+def _consistency(totals: List[float]) -> float:
     if len(totals) < 2:
         return 0.0
-    deviation = statistics.pstdev(totals)
-    return round(_clamp(10 - deviation / 2), 2)
+    return round(_clamp(10 - statistics.pstdev(totals) / 2), 2)
+
+
+def _evaluate_jury(evaluations: List[Dict[str, Any]]) -> _ScoreSummary:
+    dimensions = {
+        key: _avg(_extract_dimension_scores(evaluations, source))
+        for key, source in (
+            ("logic", "logic"), ("evidence", "evidence"),
+            ("rebuttal", "rebuttal"), ("clarity", "rhetoric"),
+        )
+    }
+    pro_totals = []
+    con_totals = []
+    for evaluation in evaluations:
+        for side, totals in (("pro", pro_totals), ("con", con_totals)):
+            score = evaluation.get(f"{side}_score")
+            totals.append(sum(score.values()) if isinstance(score, dict) else 0)
+
+    pro_total, con_total = sum(pro_totals), sum(con_totals)
+    return _ScoreSummary(
+        dimensions=ScoreBreakdown(**dimensions, total=_avg(list(dimensions.values()))),
+        consistency=_consistency(pro_totals + con_totals),
+        pro_average=_avg(pro_totals),
+        con_average=_avg(con_totals),
+        winner="pro" if pro_total > con_total else ("con" if con_total > pro_total else "tie"),
+    )
 
 
 def _extract_turn_text(turn: Dict[str, Any]) -> str:
@@ -162,10 +185,10 @@ def _side_quality(text: str) -> float:
     ), 2)
 
 
-def _infer_from_text(turns: List[Dict[str, Any]]) -> tuple[ScoreBreakdown, float, float | None, float | None, str | None]:
+def _infer_from_text(turns: List[Dict[str, Any]]) -> _ScoreSummary:
     texts = [_extract_turn_text(t) for t in turns if _extract_turn_text(t).strip()]
     if not texts:
-        return ScoreBreakdown(), 0.0, None, None, None
+        return _ScoreSummary(ScoreBreakdown(), 0.0)
     text = " ".join(texts)
     length = max(len(text), 1)
     round_count = len({t.get("round") for t in turns if t.get("round") is not None})
@@ -201,7 +224,7 @@ def _infer_from_text(turns: List[Dict[str, Any]]) -> tuple[ScoreBreakdown, float
         consistency = round(_clamp(4.0 + min(4.0, len(texts) * 0.7)), 2)
 
     total = round((logic + evidence + rebuttal + clarity) / 4, 2)
-    return (
+    return _ScoreSummary(
         ScoreBreakdown(
             logic=round(logic, 2),
             evidence=round(evidence, 2),
@@ -219,80 +242,25 @@ def _infer_from_text(turns: List[Dict[str, Any]]) -> tuple[ScoreBreakdown, float
 def evaluate_trace(trace: Dict[str, Any]) -> EvaluationResult:
     evaluations = trace.get("evaluations") or []
     turns = trace.get("turns") or []
-    notes = []
 
     if evaluations:
-        logic_scores = _extract_dimension_scores(evaluations, "logic")
-        evidence_scores = _extract_dimension_scores(evaluations, "evidence")
-        rebuttal_scores = _extract_dimension_scores(evaluations, "rebuttal")
-        clarity_scores = _extract_dimension_scores(evaluations, "rhetoric")
-
-        logic = _avg(logic_scores)
-        evidence = _avg(evidence_scores)
-        rebuttal = _avg(rebuttal_scores)
-        clarity = _avg(clarity_scores)
-
-        total = _avg([logic, evidence, rebuttal, clarity])
-        consistency = _compute_consistency(evaluations)
-        notes.append("评测基于评审分数聚合")
-    elif turn_score_result := _extract_turn_score(turns):
-        score, turn_consistency, turn_pro_avg, turn_con_avg, turn_winner = turn_score_result
-        logic = score.logic
-        evidence = score.evidence
-        rebuttal = score.rebuttal
-        clarity = score.clarity
-        total = score.total
-        consistency = turn_consistency
-        notes.append("评测基于 Trace 内嵌回合评分聚合")
+        summary = _evaluate_jury(evaluations)
+        note = "评测基于评审分数聚合"
+    elif (summary := _extract_turn_score(turns)) is not None:
+        note = "评测基于 Trace 内嵌回合评分聚合"
     else:
-        score, fallback_consistency, fallback_pro_avg, fallback_con_avg, fallback_winner = _infer_from_text(turns)
-        logic = score.logic
-        evidence = score.evidence
-        rebuttal = score.rebuttal
-        clarity = score.clarity
-        total = score.total
-        consistency = fallback_consistency
-        notes.append("评测基于结构化规则兜底，未使用评审 Agent 分数")
-
-    pro_totals = []
-    con_totals = []
-    for e in evaluations:
-        pro_score = e.get("pro_score", {}) if isinstance(e.get("pro_score"), dict) else {}
-        con_score = e.get("con_score", {}) if isinstance(e.get("con_score"), dict) else {}
-        pro_totals.append(sum(pro_score.values()) if pro_score else 0)
-        con_totals.append(sum(con_score.values()) if con_score else 0)
-
-    pro_avg = _avg(pro_totals) if pro_totals else None
-    con_avg = _avg(con_totals) if con_totals else None
-    winner = None
-    if pro_totals or con_totals:
-        pro_total = sum(pro_totals)
-        con_total = sum(con_totals)
-        winner = "pro" if pro_total > con_total else ("con" if con_total > pro_total else "tie")
-    elif "turn_pro_avg" in locals() or "turn_con_avg" in locals():
-        pro_avg = turn_pro_avg
-        con_avg = turn_con_avg
-        winner = turn_winner
-    elif "fallback_pro_avg" in locals() or "fallback_con_avg" in locals():
-        pro_avg = fallback_pro_avg
-        con_avg = fallback_con_avg
-        winner = fallback_winner
+        summary = _infer_from_text(turns)
+        note = "评测基于结构化规则兜底，未使用评审 Agent 分数"
 
     return EvaluationResult(
         trace_id=trace.get("trace_id"),
-        overall=round(total, 2),
-        dimensions=ScoreBreakdown(
-            logic=logic,
-            evidence=evidence,
-            rebuttal=rebuttal,
-            clarity=clarity,
-            total=round(total, 2)
-        ),
-        consistency=consistency,
-        pro_average=pro_avg,
-        con_average=con_avg,
-        winner=winner,
-        notes=notes
+        overall=summary.dimensions.total,
+        dimensions=summary.dimensions,
+        consistency=summary.consistency,
+        pro_average=summary.pro_average,
+        con_average=summary.con_average,
+        winner=summary.winner,
+        notes=[note],
     )
 
 
