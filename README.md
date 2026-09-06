@@ -173,9 +173,7 @@ CLAUDE_API_KEY=your_claude_api_key
 
 ```bash
 cd frontend
-pnpm install
-# 或
-npm install
+pnpm install --frozen-lockfile
 ```
 
 ### 4. 启动应用
@@ -194,7 +192,7 @@ python main.py
 **启动前端**（端口 3000）：
 ```bash
 cd frontend
-pnpm dev --host
+npm run dev -- --host
 ```
 
 ### 5. 访问应用
@@ -214,6 +212,7 @@ npm run verify
 
 ```powershell
 npm run lint:frontend
+npm run test:frontend
 npm run build:frontend
 npm run test:backend
 ```
@@ -222,6 +221,7 @@ npm run test:backend
 
 ```powershell
 npm run lint:frontend
+npm run test:frontend
 npm run build:frontend
 npm run test:backend
 ```

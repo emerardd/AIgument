@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test:interactions": "node scripts/interaction-smoke.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

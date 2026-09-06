@@ -13,6 +13,8 @@ if (Test-Path -LiteralPath $venvPython) {
 Push-Location $backendDir
 try {
     & $python -m pytest
+    $testExitCode = $LASTEXITCODE
 } finally {
     Pop-Location
 }
+exit $testExitCode

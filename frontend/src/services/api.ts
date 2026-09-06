@@ -74,6 +74,31 @@ export interface QAMode {
     icon: string
 }
 
+export interface ProviderInfo {
+    id: string
+    label: string
+    description: string
+    models: string[]
+    default_model: string
+    configured: boolean
+    api_key_env?: string | null
+    can_manage_key: boolean
+}
+
+export interface ProviderStatusResponse {
+    providers: ProviderInfo[]
+    default_provider: string
+    default_model: string
+}
+
+export interface ProviderTestResponse {
+    provider: string
+    model: string
+    ok: boolean
+    message: string
+    latency_ms?: number | null
+}
+
 export type DualChatStreamEvent =
     | { type: 'session'; session_id?: number }
     | { type: 'start'; session_id?: number }
@@ -341,6 +366,25 @@ export const historyAPI = {
     exportSession: (id: number, format: 'md' | 'json' | 'txt' = 'md') =>
         api.get(`/api/history/${id}/export?format=${format === 'md' ? 'markdown' : format}`, {
             responseType: 'blob',
+        }),
+}
+
+// ====== 设置 API ======
+
+export const settingsAPI = {
+    getProviders: () => api.get<ProviderStatusResponse>('/api/settings/providers'),
+
+    saveProviderKey: (provider: string, apiKey: string) =>
+        api.put<{ provider: string; configured: boolean; saved_to: string }>(
+            `/api/settings/providers/${provider}/key`,
+            { api_key: apiKey }
+        ),
+
+    testProvider: (provider: string, model: string, apiKey?: string) =>
+        api.post<ProviderTestResponse>('/api/settings/providers/test', {
+            provider,
+            model,
+            api_key: apiKey?.trim() || undefined,
         }),
 }
 
