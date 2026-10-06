@@ -3,7 +3,7 @@
 
 提供辩论 API 的请求和响应模型定义
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional, Literal
 
 from config import DEFAULT_MODEL, DEFAULT_PROVIDER
@@ -77,6 +77,15 @@ class DebateRequest(BaseModel):
         description="反方模型名称（不设则使用统一 model）"
     )
     
+    @model_validator(mode="after")
+    def validate_model_pairs(self):
+        for side in ("pro", "con"):
+            provider = getattr(self, f"{side}_provider")
+            model = getattr(self, f"{side}_model")
+            if (provider is None) != (model is None) or (model is not None and not model.strip()):
+                raise ValueError(f"{side}_provider and {side}_model must be supplied together with a non-empty model")
+        return self
+
     model_config = {
         "json_schema_extra": {
             "examples": [

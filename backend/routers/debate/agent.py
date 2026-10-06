@@ -1,315 +1,63 @@
-"""
-Multi-Agent 辩论 API
+"""HTTP adapters for the shared multi-agent debate workflow."""
+from contextlib import aclosing
+from typing import Literal, Optional
 
-使用 DebateOrchestrator 协调多个 Agent 的高级辩论接口
-"""
-from typing import Optional, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import ValidationError
 from sqlalchemy.orm import Session as DBSession
 
 from config import DEFAULT_MODEL, DEFAULT_PROVIDER
 from database import get_db
-from models.session import Session, Message
+from repositories.debate import DebateRepository
 from schemas.debate import DebateRequest
-from services.ai_client import AIClient
-from agents import DebateOrchestrator
-from models.debate_record import DebateRecord
-from utils import get_api_key, mark_session_status, merge_session_settings, sse_event, sse_response
-from utils.logger import get_logger
-
-logger = get_logger(__name__)
+from services.debate_run import DebateRunService
+from utils import sse_event, sse_response
 
 router = APIRouter()
+Provider = Literal["deepseek", "openai", "gemini", "claude", "mock"]
 
 
 @router.get("/debate/agent-stream")
 async def agent_stream_debate(
     topic: str = Query(..., min_length=1, max_length=500),
     rounds: int = Query(3, ge=1, le=10),
-    provider: str = DEFAULT_PROVIDER,
+    provider: Provider = DEFAULT_PROVIDER,
     model: str = DEFAULT_MODEL,
-    temperature: Optional[float] = None,
+    temperature: Optional[float] = Query(None, ge=0, le=1),
     seed: Optional[int] = None,
     preset: Optional[Literal["basic", "quality", "budget"]] = None,
-    pro_provider: Optional[str] = None,
+    pro_provider: Optional[Provider] = None,
     pro_model: Optional[str] = None,
-    con_provider: Optional[str] = None,
+    con_provider: Optional[Provider] = None,
     con_model: Optional[str] = None,
-    db: DBSession = Depends(get_db)
+    db: DBSession = Depends(get_db),
 ):
-    """
-    Multi-Agent 流式辩论接口（增强版）
-    
-    使用 DebateOrchestrator 协调多个 Agent：
-    - 正方 Agent：ReAct 推理 + 论点生成
-    - 反方 Agent：ReAct 推理 + 论点生成
-    - 评审 Agent：多维度评分 + 裁决
-    
-    返回的事件类型：
-    - opening: 开场介绍
-    - round_start: 轮次开始
-    - thinking: Agent 思考过程（分析、策略）
-    - argument: 论点内容
-    - argument_complete: 论点完成
-    - evaluation: 评审评分
-    - standings: 实时比分
-    - verdict: 最终裁决
-    - complete: 辩论完成
-    """
-    
+    try:
+        request = DebateRequest(
+            topic=topic, rounds=rounds, provider=provider, model=model,
+            temperature=temperature, seed=seed, preset=preset,
+            pro_provider=pro_provider, pro_model=pro_model,
+            con_provider=con_provider, con_model=con_model,
+        )
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    service = DebateRunService(DebateRepository(db))
+
     async def generate():
-        session = None
         try:
-            api_key = get_api_key(provider)
-            
-            # 创建会话记录
-            session = Session(
-                session_type="debate",
-                topic=topic,
-                settings={
-                    "rounds": rounds,
-                    "provider": provider,
-                    "model": model,
-                    "temperature": temperature,
-                    "seed": seed,
-                    "preset": preset,
-                    "mode": "multi-agent",
-                    "status": "running"
-                }
-            )
-            db.add(session)
-            db.commit()
-            db.refresh(session)
-            
-            logger.info(f"创建 Multi-Agent 辩论会话: {session.id}")
-            yield sse_event({"type": "session", "session_id": session.id})
-            
-            # 创建 AI 客户端和协调器
-            ai_client = AIClient(provider=provider, model=model, api_key=api_key, seed=seed)
-            orchestrator = DebateOrchestrator(ai_client=ai_client)
-
-            # 混合模型支持：为正反方创建独立的 AI 客户端
-            pro_ai_client = None
-            con_ai_client = None
-            if pro_provider and pro_model:
-                pro_api_key = get_api_key(pro_provider)
-                pro_ai_client = AIClient(provider=pro_provider, model=pro_model, api_key=pro_api_key, seed=seed)
-            if con_provider and con_model:
-                con_api_key = get_api_key(con_provider)
-                con_ai_client = AIClient(provider=con_provider, model=con_model, api_key=con_api_key, seed=seed)
-            
-            # 初始化辩论
-            await orchestrator.setup_debate(
-                topic=topic,
-                total_rounds=rounds,
-                provider=provider,
-                model=model,
-                temperature=temperature,
-                seed=seed,
-                preset=preset,
-                pro_ai_client=pro_ai_client,
-                con_ai_client=con_ai_client
-            )
-            merge_session_settings(session, {
-                "rounds": orchestrator.total_rounds,
-                "temperature": orchestrator.run_config.get("temperature"),
-                "seed": orchestrator.run_config.get("seed"),
-                "preset": orchestrator.run_config.get("preset"),
-            })
-            
-            # 运行辩论 - 使用流式版本
-            messages_to_save = []
-            
-            async for event in orchestrator.run_debate_streaming():
-                event_type = event.get("type", "")
-                
-                if event_type not in ("argument",):
-                    logger.debug(f"Event: {event_type}")
-                
-                yield sse_event(event, ensure_ascii=False)
-                
-                # 只收集完整论点
-                if event_type == "argument_complete":
-                    messages_to_save.append({
-                        "round": event.get("round"),
-                        "side": event.get("side"),
-                        "name": event.get("name"),
-                        "content": event.get("content"),
-                        "thinking": None
-                    })
-            
-            # 保存所有消息到数据库
-            for msg_data in messages_to_save:
-                role = msg_data.get("name", msg_data.get("side", "unknown"))
-                message = Message(
-                    session_id=session.id,
-                    role=role,
-                    content=msg_data.get("content", ""),
-                    meta_info={
-                        "round": msg_data.get("round"),
-                        "side": msg_data.get("side"),
-                        "mode": "multi-agent"
-                    }
-                )
-                db.add(message)
-            
-            # 保存最终状态
-            final_state = orchestrator.get_full_state()
-            trace = orchestrator.build_trace()
-            merge_session_settings(session, {
-                "final_state": final_state,
-                "trace": trace,
-                "status": "completed",
-            })
-
-            # 保存 DebateRecord
-            run_cfg = orchestrator.run_config
-            verdict_data = trace.get("verdict") or {}
-            debate_record = DebateRecord(
-                session_id=session.id,
-                topic=topic,
-                total_rounds=orchestrator.total_rounds,
-                winner=verdict_data.get("winner"),
-                pro_provider=run_cfg.get("pro_provider", run_cfg.get("provider")),
-                pro_model=run_cfg.get("pro_model", run_cfg.get("model")),
-                con_provider=run_cfg.get("con_provider", run_cfg.get("provider")),
-                con_model=run_cfg.get("con_model", run_cfg.get("model")),
-                jury_model=run_cfg.get("model"),
-                is_mixed=1 if run_cfg.get("mixed_model") else 0,
-                total_score_pro=verdict_data.get("pro_total_score", 0),
-                total_score_con=verdict_data.get("con_total_score", 0),
-                margin=verdict_data.get("margin"),
-                trace=trace,
-                verdict=verdict_data,
-                evaluations=trace.get("evaluations"),
-                run_config=run_cfg,
-            )
-            db.add(debate_record)
-            
-            db.commit()
-            logger.info(f"Multi-Agent 辩论完成: 会话 {session.id}")
-            
-        except Exception as e:
-            db.rollback()
-            if session is not None:
-                try:
-                    mark_session_status(session, "failed", str(e))
-                    db.commit()
-                except Exception:
-                    db.rollback()
-                    logger.exception("failed to mark agent debate session as failed")
-            import traceback
-            error_detail = traceback.format_exc()
-            logger.error(f"Agent 辩论失败: {error_detail}")
-            yield sse_event({"type": "error", "error": str(e)})
+            async with aclosing(service.run(request)) as events:
+                async for event in events:
+                    yield sse_event(event)
+        except Exception as exc:
+            yield sse_event({"type": "error", "error": str(exc)})
 
     return sse_response(generate())
 
 
 @router.post("/debate/agent")
-async def agent_debate(
-    request: DebateRequest,
-    db: DBSession = Depends(get_db)
-):
-    """
-    Multi-Agent 非流式辩论接口
-    
-    返回完整的辩论结果，包括：
-    - 各轮发言
-    - 思考过程
-    - 评审评分
-    - 最终裁决
-    """
+async def agent_debate(request: DebateRequest, db: DBSession = Depends(get_db)):
     try:
-        api_key = get_api_key(request.provider)
-        
-        # 创建会话
-        session = Session(
-            session_type="debate",
-            topic=request.topic,
-            settings={
-                "rounds": request.rounds,
-                "provider": request.provider,
-                "model": request.model,
-                "temperature": request.temperature,
-                "seed": request.seed,
-                "preset": request.preset,
-                "mode": "multi-agent"
-            }
-        )
-        db.add(session)
-        db.commit()
-        db.refresh(session)
-        
-        logger.info(f"创建 Multi-Agent 辩论会话: {session.id}")
-        
-        # 创建协调器
-        ai_client = AIClient(
-            provider=request.provider,
-            model=request.model,
-            api_key=api_key,
-            seed=request.seed
-        )
-        orchestrator = DebateOrchestrator(ai_client=ai_client)
-        
-        await orchestrator.setup_debate(
-            topic=request.topic,
-            total_rounds=request.rounds,
-            provider=request.provider,
-            model=request.model,
-            temperature=request.temperature,
-            seed=request.seed,
-            preset=request.preset
-        )
-        merge_session_settings(session, {
-            "rounds": orchestrator.total_rounds,
-            "temperature": orchestrator.run_config.get("temperature"),
-            "seed": orchestrator.run_config.get("seed"),
-            "preset": orchestrator.run_config.get("preset"),
-        })
-        
-        # 收集所有事件（复用流式接口）
-        events = []
-        async for event in orchestrator.run_debate_streaming():
-            events.append(event)
-
-            # 保存完整论点消息
-            if event.get("type") == "argument_complete":
-                message = Message(
-                    session_id=session.id,
-                    role=event.get("name", event.get("side")),
-                    content=event.get("content", ""),
-                    meta_info={
-                        "round": event.get("round"),
-                        "side": event.get("side"),
-                        "mode": "multi-agent",
-                    },
-                )
-                db.add(message)
-        
-        merge_session_settings(session, {"trace": orchestrator.build_trace()})
-        db.commit()
-        
-        # 提取关键信息
-        arguments = [e for e in events if e.get("type") == "argument_complete"]
-        thinkings = [e for e in events if e.get("type") == "thinking"]
-        evaluations = [e for e in events if e.get("type") == "evaluation"]
-        verdict = next((e for e in events if e.get("type") == "verdict"), None)
-        
-        logger.info(f"Multi-Agent 辩论完成: 会话 {session.id}")
-        
-        return {
-            "session_id": session.id,
-            "topic": request.topic,
-            "rounds": orchestrator.total_rounds,
-            "arguments": arguments,
-            "thinkings": thinkings,
-            "evaluations": evaluations,
-            "verdict": verdict,
-            "full_state": orchestrator.get_full_state()
-        }
-        
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Agent 辩论失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return await DebateRunService(DebateRepository(db)).collect(request)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
