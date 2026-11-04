@@ -1,17 +1,15 @@
 """HTTP adapters for the shared multi-agent debate workflow."""
-from contextlib import aclosing
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import ValidationError
 from sqlalchemy.orm import Session as DBSession
 
 from config import DEFAULT_MODEL, DEFAULT_PROVIDER
 from database import get_db
 from repositories.debate import DebateRepository
+from routers.run_stream import stream_run, validate_request
 from schemas.debate import DebateRequest
 from services.debate_run import DebateRunService
-from utils import sse_event, sse_response
 
 router = APIRouter()
 Provider = Literal["deepseek", "openai", "gemini", "claude", "mock"]
@@ -32,27 +30,14 @@ async def agent_stream_debate(
     con_model: Optional[str] = None,
     db: DBSession = Depends(get_db),
 ):
-    try:
-        request = DebateRequest(
-            topic=topic, rounds=rounds, provider=provider, model=model,
-            temperature=temperature, seed=seed, preset=preset,
-            pro_provider=pro_provider, pro_model=pro_model,
-            con_provider=con_provider, con_model=con_model,
-        )
-    except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-    service = DebateRunService(DebateRepository(db))
-
-    async def generate():
-        try:
-            async with aclosing(service.run(request)) as events:
-                async for event in events:
-                    yield sse_event(event)
-        except Exception as exc:
-            yield sse_event({"type": "error", "error": str(exc)})
-
-    return sse_response(generate())
+    request = validate_request(
+        DebateRequest,
+        topic=topic, rounds=rounds, provider=provider, model=model,
+        temperature=temperature, seed=seed, preset=preset,
+        pro_provider=pro_provider, pro_model=pro_model,
+        con_provider=con_provider, con_model=con_model,
+    )
+    return stream_run(DebateRunService(DebateRepository(db)), request)
 
 
 @router.post("/debate/agent")

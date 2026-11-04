@@ -2,44 +2,26 @@
 
 from datetime import datetime, timezone
 
-from sqlalchemy.orm import Session as DBSession
-
 from models.debate_record import DebateRecord
-from models.session import Message, Session
-from utils.session_state import mark_session_status, merge_session_settings
+from models.session import Session
+from repositories.session_run import SessionRunRepository
+from utils.session_state import merge_session_settings
 
 
-class DebateRepository:
-    def __init__(self, db: DBSession):
-        self.db = db
-
+class DebateRepository(SessionRunRepository):
     def create(self, topic: str, settings: dict) -> Session:
-        session = Session(
-            session_type="debate", topic=topic,
-            settings={**settings, "mode": "multi-agent", "status": "running"},
-        )
-        self.db.add(session)
-        self.db.commit()
-        self.db.refresh(session)
-        return session
-
-    def get(self, session_id: int) -> Session:
-        return self.db.get(Session, session_id)
-
-    def rollback(self) -> None:
-        self.db.rollback()
+        return self.start("debate", topic, {**settings, "mode": "multi-agent"})
 
     def save_argument(self, session: Session, event: dict) -> None:
         """Keep completed turns even if a later model call fails or is cancelled."""
-        self.db.add(Message(
-            session_id=session.id,
-            role=event.get("name") or event.get("side") or "unknown",
-            content=event.get("content") or "",
-            meta_info={"round": event.get("round"), "side": event.get("side"), "mode": "multi-agent"},
-        ))
-        self.db.commit()
+        self.add_message(
+            session,
+            event.get("name") or event.get("side") or "unknown",
+            event.get("content") or "",
+            {"round": event.get("round"), "side": event.get("side"), "mode": "multi-agent"},
+        )
 
-    def complete(self, session: Session, trace: dict, final_state: dict, total_rounds: int) -> None:
+    def complete_debate(self, session: Session, trace: dict, final_state: dict, total_rounds: int) -> None:
         """Commit the final session state and analysis record atomically."""
         run_config = trace["run_config"]
         verdict = trace.get("verdict") or {}
@@ -49,6 +31,7 @@ class DebateRepository:
             "seed": run_config.get("seed"),
             "preset": run_config.get("preset"),
             "final_state": final_state, "trace": trace, "status": "completed",
+            "completed_at": datetime.now(timezone.utc).isoformat(),
         })
         self.db.add(DebateRecord(
             session_id=session.id, topic=session.topic, total_rounds=total_rounds,
@@ -65,9 +48,4 @@ class DebateRepository:
             evaluations=trace.get("evaluations"), run_config=run_config,
             completed_at=datetime.now(timezone.utc),
         ))
-        self.db.commit()
-
-    def terminate(self, session: Session, status: str, error: str | None = None) -> None:
-        self.db.rollback()
-        mark_session_status(session, status, error)
         self.db.commit()
