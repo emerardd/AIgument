@@ -64,6 +64,20 @@ flowchart TD
 4. 提取 `create_app` 和可注入数据库配置，再整理 Python 包入口。同步验证开发启动和 PyInstaller 构建。
 5. 产品层面将多 Agent 辩论、审计记录、评分和图谱作为主要路径；普通 Chat/QA 作为辅助入口。是否删除旧模式需要独立的产品决定。
 
+## 后续实施（2026-11-04）
+
+上面第 1、2、3、5 条已完成；第 4 条（`create_app` 与包入口）尚未处理。
+
+| 方向 | 结果 |
+| --- | --- |
+| 模式整合 | 删除传统辩论、普通对话和普通问答（接口、页面、store 和只供它们使用的 prompts.yaml）。首页改为模式选择；Agent 辩论与辩证法合并到 `/debate`，用 `?mode=dialectic` 切换。旧路径重定向。旧 chat/qa 历史保留只读查看，问答会话可从历史继续追问。 |
+| 统一运行生命周期 | `SessionRunService` + `SessionRunRepository` 承担所有流式模式的会话创建、逐条落盘、完成后才发 `complete`、失败与取消状态。辩论、辩证法、角色对话、问答都基于它，路由只做参数校验（pydantic，422）和 SSE 编码。 |
+| 持久化归属 | 引入 Alembic，启动时自动升级；基线迁移只创建缺失的表，旧库原地升级。`session.status/error/completed_at` 成为独立列，`session.result` 保存辩证法 trace 与进化树，辩论 trace 和最终状态只存在 `debate_records`。迁移会为缺少记录的旧辩论补建 `DebateRecord`，并支持 downgrade。 |
+| 前端运行控制 | `createRunController` / `useStreamRun` 丢弃被取代请求的回调，未收到 `complete` 就断开的流显示为中断错误。Agent 辩论与辩证法的事件处理改为纯 reducer，`AgentDebateView` 拆为表单、记录、结果三个组件。四种模式都使用同一控制器。 |
+| 新功能 | 启动时把上次进程遗留的 `running` 会话标记为 `interrupted`；历史列表显示失败、取消、中断状态；统计面板展示胜负分布和混合模型对战排行（同模型对战不计入）。时间戳统一带 UTC 偏移输出，修复界面时间相差 8 小时的问题。 |
+
+仍未覆盖：PyInstaller 打包后的迁移执行（已加入 `--add-data` 与 `--collect-submodules alembic`，未实际构建安装包验证）；真实模型 API 调用；断点续跑。
+
 ## 验证
 
 - 后端：112 passed，1 skipped；新增 25 个测试，覆盖两种入口、混合模型、真实协调器配合 mock Provider、持久化时序、失败事件、异常退出、缺少完成事件、取消、最终提交失败和配置校验。
