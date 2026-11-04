@@ -4,45 +4,33 @@ import { useAgentDebateRun } from '@/features/debate/useAgentDebateRun'
 import { AgentDebateForm } from './AgentDebateForm'
 import { AgentDebateTranscript } from './AgentDebateTranscript'
 import { AgentDebateResults } from './AgentDebateResults'
-import { StandingsPanel } from './ScorePanel'
-import { Brain, Loader2 } from 'lucide-react'
 
 export function AgentDebateView() {
-    const messagesEndRef = useRef<HTMLDivElement>(null)
-    const { isLoading, error, messages, standings, showScores } = useAgentDebateStore()
+    const endRef = useRef<HTMLDivElement>(null)
+    const { isLoading, error, messages } = useAgentDebateStore()
 
-    const scrollToBottom = useCallback(() => {
-        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+    const scrollToEnd = useCallback(() => {
+        setTimeout(() => endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 100)
     }, [])
-    const { start, cancel } = useAgentDebateRun(scrollToBottom)
+    const { start, cancel } = useAgentDebateRun(scrollToEnd)
 
     return (
-        <div className="max-w-4xl mx-auto space-y-12">
+        <div className="space-y-10">
             <AgentDebateForm isLoading={isLoading} onStart={start} onCancel={cancel} />
 
             {error && (
-                <div className="p-4 rounded-xl bg-destructive/5 text-destructive text-sm text-center animate-spring" role="alert">
+                <div className="border-l-2 border-destructive bg-surface px-4 py-3 text-sm text-ink" role="alert">
                     {error}
                 </div>
             )}
 
-            <div className="space-y-8">
-                <AgentDebateTranscript />
-                <AgentDebateResults />
-                <div ref={messagesEndRef} />
-            </div>
-
             {isLoading && messages.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground animate-fade-in">
-                    <div className="relative">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        <Brain className="absolute inset-0 h-8 w-8 text-primary/30 animate-pulse" />
-                    </div>
-                    <span className="text-sm">AI 代理正在准备辩论...</span>
-                </div>
+                <p className="text-sm text-ink-3" role="status">双方正在审题…</p>
             )}
 
-            {showScores && standings && isLoading && <StandingsPanel standings={standings} />}
+            <AgentDebateTranscript />
+            <AgentDebateResults />
+            <div ref={endRef} />
         </div>
     )
 }

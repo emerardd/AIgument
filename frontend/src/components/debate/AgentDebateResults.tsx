@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react'
 import { useAgentDebateStore } from '@/stores/agentDebateStore'
 import { exportDebateMarkdown } from '@/utils/exportUtils'
 import { VerdictPanel } from './ScorePanel'
-import { Download, Loader2 } from 'lucide-react'
+import { Download } from 'lucide-react'
 
 const ArgumentGraphView = lazy(() =>
     import('./ArgumentGraphView').then((module) => ({ default: module.ArgumentGraphView }))
@@ -14,39 +14,25 @@ export function AgentDebateResults() {
     if (!verdict) return null
 
     return (
-        <>
-            <VerdictPanel
-                winner={verdict.winner}
-                proScore={verdict.pro_total_score}
-                conScore={verdict.con_total_score}
-                margin={verdict.margin}
-                summary={verdict.summary}
-                proStrengths={verdict.pro_strengths}
-                conStrengths={verdict.con_strengths}
-                keyTurningPoints={verdict.key_turning_points}
-            />
+        <div className="space-y-12">
+            <VerdictPanel verdict={verdict} />
 
-            {sessionId && (
-                <div className="mt-8 animate-fade-in">
-                    <Suspense fallback={
-                        <div className="flex items-center justify-center py-8">
-                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                        </div>
-                    }>
-                        <ArgumentGraphView sessionId={sessionId} />
-                    </Suspense>
-                </div>
-            )}
-
-            <div className="flex justify-center mt-4 animate-fade-in">
+            <div className="flex justify-center">
                 <button
+                    type="button"
                     onClick={() => exportDebateMarkdown({ topic, messages, evaluations, verdict, totalRounds })}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-sm font-medium shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-105 transition-all duration-300"
+                    className="btn-line"
                 >
                     <Download className="w-4 h-4" />
-                    导出 Markdown
+                    导出为 Markdown
                 </button>
             </div>
-        </>
+
+            {sessionId && (
+                <Suspense fallback={<p className="text-sm text-ink-3 text-center">正在生成论点图谱…</p>}>
+                    <ArgumentGraphView sessionId={sessionId} />
+                </Suspense>
+            )}
+        </div>
     )
 }

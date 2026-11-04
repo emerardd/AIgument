@@ -1,7 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Navbar } from './components/layout/Navbar'
-import { Footer } from './components/layout/Footer'
 import { ToastContainer } from './components/ui/Toast'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { PageSkeleton } from './components/ui/Skeleton'
@@ -17,9 +16,9 @@ const Settings = lazy(() => import('./pages/Settings'))
 function App() {
   return (
     <Router>
-      <div className="flex flex-col min-h-screen">
+      <div className="min-h-screen flex flex-col md:flex-row">
         <Navbar />
-        <main className="flex-1">
+        <main className="flex-1 min-w-0">
           <ErrorBoundary>
             <Suspense fallback={<PageSkeleton />}>
               <Routes>
@@ -38,7 +37,6 @@ function App() {
             </Suspense>
           </ErrorBoundary>
         </main>
-        <Footer />
         <ToastContainer />
       </div>
     </Router>

@@ -1,12 +1,11 @@
 import { useState } from 'react'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import { useAgentDebateStore } from '@/stores/agentDebateStore'
 import { useSettingsStore, type Provider } from '@/stores/settingsStore'
+import { useInitialTopic } from '@/hooks/useInitialTopic'
 import { presetTopics } from '@/config/presetTopics'
 import { modelPresets } from '@/config/modelPresets'
 import type { DebateSettings } from '@/types'
-import { ArrowRight, Brain, Eye, EyeOff, ListChecks, Settings2, Shuffle, Square, ThumbsDown, ThumbsUp } from 'lucide-react'
+import { ListChecks, Square } from 'lucide-react'
 
 const PROVIDERS: { id: Provider; label: string }[] = [
     { id: 'deepseek', label: 'DeepSeek' },
@@ -16,11 +15,7 @@ const PROVIDERS: { id: Provider; label: string }[] = [
     { id: 'mock', label: 'Mock' },
 ]
 
-const ROUND_PRESETS = [
-    { n: 1, label: '快速', desc: '1轮' },
-    { n: 3, label: '标准', desc: '3轮' },
-    { n: 5, label: '深入', desc: '5轮' },
-]
+const ROUND_OPTIONS = [1, 3, 5]
 
 interface SideModel {
     provider: Provider
@@ -32,54 +27,31 @@ function SideModelPicker({ side, value, onChange }: {
     value: SideModel
     onChange: (value: SideModel) => void
 }) {
-    const isPro = side === 'pro'
-    const Icon = isPro ? ThumbsUp : ThumbsDown
+    const label = side === 'pro' ? '正方' : '反方'
     return (
-        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border ${isPro ? 'bg-blue-500/10 border-blue-500/20' : 'bg-orange-500/10 border-orange-500/20'}`}>
-            <Icon className={`w-3 h-3 ${isPro ? 'text-blue-500' : 'text-orange-500'}`} />
-            <span className={`text-xs font-medium ${isPro ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>
-                {isPro ? '正方' : '反方'}
-            </span>
+        <div className="flex items-center gap-2 min-w-0">
+            <span className={`stone stone-${side}`} aria-hidden="true" />
+            <span className="text-sm text-ink-2 shrink-0">{label}</span>
             <select
                 value={value.provider}
                 onChange={(e) => {
                     const provider = e.target.value as Provider
                     onChange({ provider, model: modelPresets[provider][0] })
                 }}
-                className="text-xs bg-transparent border-0 outline-none text-foreground cursor-pointer"
-                aria-label={`${isPro ? '正方' : '反方'}提供商`}
+                className="field h-8 px-2 text-sm"
+                aria-label={`${label}提供商`}
             >
                 {PROVIDERS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
             </select>
             <select
                 value={value.model}
                 onChange={(e) => onChange({ ...value, model: e.target.value })}
-                className="text-xs bg-transparent border-0 outline-none text-foreground cursor-pointer max-w-[120px]"
-                aria-label={`${isPro ? '正方' : '反方'}模型`}
+                className="field h-8 px-2 text-sm min-w-0 max-w-[11rem]"
+                aria-label={`${label}模型`}
             >
                 {modelPresets[value.provider].map(m => <option key={m} value={m}>{m}</option>)}
             </select>
         </div>
-    )
-}
-
-function ToggleChip({ active, onClick, icon: Icon, label }: {
-    active: boolean
-    onClick: () => void
-    icon: typeof Brain
-    label: string
-}) {
-    return (
-        <button
-            onClick={onClick}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${active
-                ? 'bg-primary/10 text-primary'
-                : 'bg-muted/30 text-muted-foreground hover:text-foreground'}`}
-        >
-            <Icon className="w-3 h-3" />
-            {label}
-            {active ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-        </button>
     )
 }
 
@@ -90,7 +62,8 @@ interface AgentDebateFormProps {
 }
 
 export function AgentDebateForm({ isLoading, onStart, onCancel }: AgentDebateFormProps) {
-    const [topic, setTopic] = useState('')
+    const initialTopic = useInitialTopic()
+    const [topic, setTopic] = useState(initialTopic)
     const [rounds, setRounds] = useState(3)
     const [mixedMode, setMixedMode] = useState(false)
     const [pro, setPro] = useState<SideModel>({ provider: 'deepseek', model: modelPresets.deepseek[0] })
@@ -118,53 +91,56 @@ export function AgentDebateForm({ isLoading, onStart, onCancel }: AgentDebateFor
     }
 
     return (
-        <div className="space-y-6">
-            <div className="card-modern p-1 sm:p-1.5 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-background/50 backdrop-blur-sm relative">
-                <Input
-                    placeholder="例如：人工智能是否会取代人类工作？"
-                    value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
-                    className="h-11 sm:h-12 border-0 bg-transparent focus-visible:ring-0 text-base sm:text-lg px-3 sm:px-4 shadow-none"
-                    onKeyDown={(e) => e.key === 'Enter' && submit()}
-                />
-                <button
-                    onClick={() => setShowTopics(!showTopics)}
-                    className="h-11 px-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors shrink-0"
-                    title="热门主题"
-                >
-                    <ListChecks className="h-5 w-5" />
-                </button>
-                <Button
-                    onClick={isLoading ? onCancel : submit}
-                    disabled={!isLoading && !topic.trim()}
-                    className="h-11 px-6 rounded-xl btn-primary shrink-0 w-full sm:w-auto transition-transform active:scale-95"
-                    title={isLoading ? '停止生成' : '开始辩论'}
-                >
-                    {isLoading ? <Square className="h-5 w-5" /> : <ArrowRight className="h-5 w-5" />}
-                </Button>
+        <form
+            className="space-y-5"
+            onSubmit={(e) => { e.preventDefault(); if (isLoading) onCancel(); else submit() }}
+        >
+            <div className="relative">
+                <label htmlFor="debate-topic" className="block text-sm text-ink-3 mb-2">辩题</label>
+                <div className="field flex items-center gap-2 pl-4 pr-1.5 py-1.5">
+                    <input
+                        id="debate-topic"
+                        placeholder="例如：人工智能是否会取代人类工作？"
+                        value={topic}
+                        onChange={(e) => setTopic(e.target.value)}
+                        className="flex-1 min-w-0 h-10 text-[1.0625rem] placeholder:text-ink-3"
+                        autoComplete="off"
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowTopics(!showTopics)}
+                        className="h-9 w-9 shrink-0 flex items-center justify-center rounded text-ink-3 hover:text-ink hover:bg-sunken"
+                        title="题库"
+                        aria-label="从题库选择"
+                        aria-expanded={showTopics}
+                    >
+                        <ListChecks className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={!isLoading && !topic.trim()}
+                        className="btn-ink shrink-0"
+                    >
+                        {isLoading ? <><Square className="h-3.5 w-3.5" fill="currentColor" />停止</> : '开始辩论'}
+                    </button>
+                </div>
 
                 {showTopics && (
-                    <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl p-4 bg-background border border-border shadow-2xl z-50 max-h-80 overflow-y-auto">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="absolute top-full left-0 right-0 mt-2 panel p-4 z-30 max-h-80 overflow-y-auto shadow-[0_12px_32px_-12px_rgb(0_0_0/0.25)]">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
                             {presetTopics.map((cat) => (
                                 <div key={cat.name}>
-                                    <div className="text-xs font-medium text-muted-foreground mb-2">
-                                        {cat.icon} {cat.name}
-                                    </div>
-                                    <div className="space-y-1">
-                                        {cat.topics.map((t) => (
-                                            <button
-                                                key={t}
-                                                onClick={() => {
-                                                    setTopic(t)
-                                                    setShowTopics(false)
-                                                }}
-                                                className="w-full text-left text-sm px-3 py-1.5 rounded-lg hover:bg-muted/50 text-foreground/80 hover:text-foreground transition-colors truncate"
-                                            >
-                                                {t}
-                                            </button>
-                                        ))}
-                                    </div>
+                                    <div className="text-[0.8125rem] text-ink-3 mb-1">{cat.name}</div>
+                                    {cat.topics.map((t) => (
+                                        <button
+                                            key={t}
+                                            type="button"
+                                            onClick={() => { setTopic(t); setShowTopics(false) }}
+                                            className="block w-full text-left text-sm px-2 py-1.5 -mx-2 rounded text-ink-2 hover:text-ink hover:bg-sunken truncate"
+                                        >
+                                            {t}
+                                        </button>
+                                    ))}
                                 </div>
                             ))}
                         </div>
@@ -172,69 +148,46 @@ export function AgentDebateForm({ isLoading, onStart, onCancel }: AgentDebateFor
                 )}
             </div>
 
-            <div className="flex flex-wrap justify-center items-center gap-4 sm:gap-8">
+            <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
                 <div className="flex items-center gap-3">
-                    <span className="text-sm text-muted-foreground font-medium">辩论轮次</span>
-                    <div className="flex items-center bg-muted/30 rounded-xl p-1 gap-1">
-                        {ROUND_PRESETS.map(({ n, label, desc }) => (
-                            <button
-                                key={n}
-                                onClick={() => setRounds(n)}
-                                className={`relative px-4 py-2 rounded-lg transition-all duration-300 text-sm font-medium flex flex-col items-center gap-0.5 min-w-[70px] ${rounds === n
-                                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25 scale-105'
-                                    : 'hover:bg-muted/50 text-muted-foreground hover:text-foreground'}`}
-                            >
-                                <span className="text-xs opacity-80">{label}</span>
-                                <span className="font-bold">{desc}</span>
+                    <span className="text-sm text-ink-3">轮数</span>
+                    <div className="segmented" role="group" aria-label="轮数">
+                        {ROUND_OPTIONS.map(n => (
+                            <button key={n} type="button" aria-pressed={rounds === n} onClick={() => setRounds(n)}>
+                                {n}
                             </button>
                         ))}
-                        <div className="flex items-center gap-1 px-2">
-                            <input
-                                type="number"
-                                min={1}
-                                max={10}
-                                value={rounds}
-                                onChange={(e) => setRounds(Math.min(10, Math.max(1, Number(e.target.value) || 1)))}
-                                className="w-12 h-8 text-center text-sm font-bold rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/30 outline-none"
-                                aria-label="自定义轮数"
-                            />
-                            <span className="text-xs text-muted-foreground">轮</span>
-                        </div>
                     </div>
+                    <input
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={rounds}
+                        onChange={(e) => setRounds(Math.min(10, Math.max(1, Number(e.target.value) || 1)))}
+                        className="field w-14 h-8 text-center text-sm tabular-nums"
+                        aria-label="自定义轮数"
+                    />
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <ToggleChip active={showThinking} onClick={toggleShowThinking} icon={Brain} label="思考过程" />
-                    <ToggleChip active={showScores} onClick={toggleShowScores} icon={Settings2} label="评分面板" />
+                    <button type="button" className="chip" aria-pressed={showThinking} onClick={toggleShowThinking}>思路</button>
+                    <button type="button" className="chip" aria-pressed={showScores} onClick={toggleShowScores}>评分</button>
+                    <button type="button" className="chip" aria-pressed={mixedMode} onClick={() => setMixedMode(!mixedMode)}>双方用不同模型</button>
                 </div>
 
-                <div className="flex flex-wrap justify-center items-center gap-3">
-                    <button
-                        onClick={() => setMixedMode(!mixedMode)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${mixedMode
-                            ? 'bg-gradient-to-r from-blue-500/20 to-orange-500/20 text-primary border border-primary/30'
-                            : 'bg-muted/30 text-muted-foreground hover:text-foreground'}`}
-                    >
-                        <Shuffle className="w-3 h-3" />
-                        混合模型
-                    </button>
-
-                    {mixedMode ? (
-                        <div className="flex flex-wrap gap-2 items-center">
-                            <SideModelPicker side="pro" value={pro} onChange={setPro} />
-                            <span className="text-xs text-muted-foreground font-bold">VS</span>
-                            <SideModelPicker side="con" value={con} onChange={setCon} />
-                        </div>
-                    ) : (
-                        <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-muted/20">
-                            <div className="text-left">
-                                <div className="text-xs text-muted-foreground">AI 模型</div>
-                                <div className="text-sm font-medium text-foreground">{defaultModel}</div>
-                            </div>
-                        </div>
-                    )}
-                </div>
+                {!mixedMode && (
+                    <span className="text-sm text-ink-3">
+                        双方均使用 <span className="text-ink-2">{defaultModel}</span>
+                    </span>
+                )}
             </div>
-        </div>
+
+            {mixedMode && (
+                <div className="flex flex-wrap gap-x-8 gap-y-3 pt-1">
+                    <SideModelPicker side="pro" value={pro} onChange={setPro} />
+                    <SideModelPicker side="con" value={con} onChange={setCon} />
+                </div>
+            )}
+        </form>
     )
 }

@@ -8,18 +8,12 @@ const iconMap: Record<ToastType, React.ElementType> = {
     warning: AlertTriangle,
 }
 
-const styleMap: Record<ToastType, string> = {
-    success: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400',
-    error: 'bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400',
-    info: 'bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400',
-    warning: 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400',
-}
-
+// Toasts are ink on board; the icon carries the kind, the text says what happened.
 const iconColorMap: Record<ToastType, string> = {
-    success: 'text-emerald-500',
-    error: 'text-red-500',
-    info: 'text-blue-500',
-    warning: 'text-amber-500',
+    success: 'text-board',
+    error: 'text-[var(--con-soft)]',
+    info: 'text-board',
+    warning: 'text-[var(--jury-soft)]',
 }
 
 export function ToastContainer() {
@@ -34,18 +28,15 @@ export function ToastContainer() {
                 return (
                     <div
                         key={toast.id}
-                        className={`
-                            pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl
-                            border backdrop-blur-md shadow-soft-lg
-                            animate-slide-up min-w-[280px] max-w-md
-                            ${styleMap[toast.type]}
-                        `}
+                        role={toast.type === 'error' ? 'alert' : 'status'}
+                        className="pointer-events-auto arrive flex items-center gap-3 pl-4 pr-2 py-2.5 rounded-md bg-ink text-board min-w-[260px] max-w-md"
                     >
-                        <Icon className={`w-5 h-5 shrink-0 ${iconColorMap[toast.type]}`} />
-                        <span className="text-sm font-medium flex-1">{toast.message}</span>
+                        <Icon className={`w-4 h-4 shrink-0 ${iconColorMap[toast.type]}`} />
+                        <span className="text-sm flex-1">{toast.message}</span>
                         <button
                             onClick={() => removeToast(toast.id)}
-                            className="p-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-colors shrink-0"
+                            className="p-1.5 rounded opacity-70 hover:opacity-100 shrink-0"
+                            aria-label="关闭提示"
                         >
                             <X className="w-4 h-4" />
                         </button>

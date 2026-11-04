@@ -1,12 +1,12 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
 import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer'
 import { useHistoryStore } from '@/stores/historyStore'
-import type { SocraticRestoreState } from '@/components/qa/SocraticQAView'
 import { useToast } from '@/hooks/useToast'
 import { downloadSessionExport } from '@/utils/download'
-import { X, Loader2, Download, Calendar, MessageCircle } from 'lucide-react'
+import { SESSION_TYPE_LABELS, STATUS_LABELS, formatShortDate } from '@/utils/sessionLabels'
+import type { SocraticRestoreState } from '@/components/qa/SocraticQAView'
+import { X } from 'lucide-react'
 
 interface SessionDetailModalProps {
     sessionId: number
@@ -14,82 +14,52 @@ interface SessionDetailModalProps {
     onClose: () => void
 }
 
+const PRO_ROLES = new Set(['正方', '正题'])
+const CON_ROLES = new Set(['反方', '反题'])
+const ROLE_NAMES: Record<string, string> = { user: '你', assistant: '回答', topic: '话题' }
+
+function roleTone(role: string) {
+    if (PRO_ROLES.has(role)) return 'text-pro'
+    if (CON_ROLES.has(role)) return 'text-con'
+    if (role === 'user') return 'text-ink'
+    return 'text-ink-2'
+}
+
 export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetailModalProps) {
     const { selectedSession, isDetailLoading, fetchSessionDetail, clearSelectedSession } = useHistoryStore()
     const toast = useToast()
     const navigate = useNavigate()
+    const dialogRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
-        if (isOpen && sessionId) {
-            fetchSessionDetail(sessionId)
-        }
-        return () => {
-            clearSelectedSession()
-        }
+        if (isOpen && sessionId) fetchSessionDetail(sessionId)
+        return () => clearSelectedSession()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, sessionId])
+
+    useEffect(() => {
+        if (!isOpen) return
+        dialogRef.current?.focus()
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+        document.addEventListener('keydown', onKey)
+        return () => document.removeEventListener('keydown', onKey)
+    }, [isOpen, onClose])
 
     if (!isOpen) return null
 
     const handleExport = async (format: 'md' | 'json' | 'txt') => {
         try {
             await downloadSessionExport(sessionId, format)
-            toast.success(`导出成功: session_${sessionId}.${format}`)
+            toast.success(`已导出 session_${sessionId}.${format}`)
         } catch {
             toast.error('导出失败，请重试')
         }
     }
 
-    const getRoleColor = (role: string) => {
-        const colors: Record<string, string> = {
-            正方: 'border-l-blue-500 bg-blue-50 dark:bg-blue-900/10',
-            反方: 'border-l-red-500 bg-red-50 dark:bg-red-900/10',
-            正题: 'border-l-emerald-500 bg-emerald-50 dark:bg-emerald-900/10',
-            反题: 'border-l-amber-500 bg-amber-50 dark:bg-amber-900/10',
-            合题: 'border-l-violet-500 bg-violet-50 dark:bg-violet-900/10',
-            topic: 'border-l-gray-500 bg-gray-50 dark:bg-gray-900/10',
-            user: 'border-l-green-500 bg-green-50 dark:bg-green-900/10',
-            assistant: 'border-l-purple-500 bg-purple-50 dark:bg-purple-900/10',
-            小阳: 'border-l-sky-500 bg-sky-50 dark:bg-sky-900/10',
-            老陈: 'border-l-orange-500 bg-orange-50 dark:bg-orange-900/10',
-            阿疑: 'border-l-rose-500 bg-rose-50 dark:bg-rose-900/10',
-            小创: 'border-l-emerald-500 bg-emerald-50 dark:bg-emerald-900/10',
-            老王: 'border-l-stone-500 bg-stone-50 dark:bg-stone-900/10',
-            孔思: 'border-l-indigo-500 bg-indigo-50 dark:bg-indigo-900/10',
-        }
-        return colors[role] || 'border-l-gray-500 bg-gray-50'
-    }
-
-    const getRoleLabel = (role: string) => {
-        const labels: Record<string, { text: string; emoji: string }> = {
-            正方: { text: '正方', emoji: '👍' },
-            反方: { text: '反方', emoji: '👎' },
-            正题: { text: '正题', emoji: '🧠' },
-            反题: { text: '反题', emoji: '⚡' },
-            合题: { text: '合题', emoji: '🔺' },
-            topic: { text: '主题', emoji: '📌' },
-            user: { text: '用户', emoji: '👤' },
-            assistant: { text: 'AI', emoji: '🤖' },
-            小阳: { text: '小阳', emoji: '🌞' },
-            老陈: { text: '老陈', emoji: '📊' },
-            阿疑: { text: '阿疑', emoji: '❓' },
-            小创: { text: '小创', emoji: '💡' },
-            老王: { text: '老王', emoji: '🔧' },
-            孔思: { text: '孔思', emoji: '📚' },
-        }
-        return labels[role] || { text: role, emoji: '💬' }
-    }
-
-    const formatDate = (dateStr: string) => {
-        const date = new Date(dateStr)
-        return date.toLocaleString('zh-CN')
-    }
-
     const canContinue = selectedSession?.type === 'qa_socratic'
 
-    const handleContinueChat = () => {
+    const handleContinue = () => {
         if (!selectedSession || !canContinue) return
-
         const state: SocraticRestoreState = {
             restore: {
                 sessionId: selectedSession.session_id,
@@ -101,87 +71,69 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
         }
         onClose()
         navigate('/socratic-qa', { state })
-        toast.success('已恢复会话，可以继续追问')
+        toast.success('已打开这次问答，可以接着问')
     }
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-            {/* 背景遮罩 */}
-            <div
-                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-                onClick={onClose}
-            />
+    const status = selectedSession?.status ? STATUS_LABELS[selectedSession.status as keyof typeof STATUS_LABELS] : undefined
 
-            {/* 模态框内容 */}
-            <div className="relative bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden mx-4">
-                <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
-                    <h2 className="text-xl font-bold">会话详情</h2>
-                    <div className="flex items-center gap-2">
-                        {canContinue && (
-                            <Button
-                                variant="default"
-                                size="sm"
-                                onClick={handleContinueChat}
-                                className="btn-primary gap-1"
-                            >
-                                <MessageCircle className="h-4 w-4" />
-                                继续追问
-                            </Button>
-                        )}
-                        <Button variant="outline" size="sm" onClick={() => handleExport('md')}>
-                            <Download className="h-4 w-4 mr-1" />
-                            MD
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleExport('json')}>
-                            <Download className="h-4 w-4 mr-1" />
-                            JSON
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleExport('txt')}>
-                            <Download className="h-4 w-4 mr-1" />
-                            TXT
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={onClose}>
-                            <X className="h-5 w-5" />
-                        </Button>
+    return (
+        <div className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center sm:p-6">
+            <div className="absolute inset-0 bg-ink/40" onClick={onClose} aria-hidden="true" />
+
+            <div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="session-detail-title"
+                tabIndex={-1}
+                className="arrive relative bg-board sm:rounded-lg w-full max-w-3xl sm:max-h-[88vh] flex flex-col outline-none shadow-[0_24px_64px_-24px_rgb(0_0_0/0.45)]"
+            >
+                <header className="flex items-start gap-4 px-5 sm:px-7 pt-5 pb-4 border-b border-line">
+                    <div className="min-w-0 flex-1">
+                        <p className="text-[0.8125rem] text-ink-3">
+                            {selectedSession ? SESSION_TYPE_LABELS[selectedSession.type] : '会话'}
+                            {status && <span className="ml-3 text-ink-2">{status}</span>}
+                        </p>
+                        <h2 id="session-detail-title" className="display text-[1.5rem] mt-1 break-words">
+                            {selectedSession?.topic || (isDetailLoading ? '正在读取…' : '未命名')}
+                        </h2>
                     </div>
+                    <button type="button" onClick={onClose} className="p-2 -mr-2 rounded text-ink-3 hover:text-ink hover:bg-sunken" aria-label="关闭">
+                        <X className="h-5 w-5" />
+                    </button>
+                </header>
+
+                <div className="flex flex-wrap items-center gap-2 px-5 sm:px-7 py-3 border-b border-line">
+                    {canContinue && (
+                        <button type="button" onClick={handleContinue} className="btn-ink h-9">接着问</button>
+                    )}
+                    <span className="text-[0.8125rem] text-ink-3 ml-auto mr-1">导出</span>
+                    {(['md', 'json', 'txt'] as const).map(f => (
+                        <button key={f} type="button" onClick={() => handleExport(f)} className="btn-line h-8 px-2.5 text-[0.8125rem]">
+                            {f === 'md' ? 'Markdown' : f.toUpperCase()}
+                        </button>
+                    ))}
                 </div>
 
-                {/* 内容区域 */}
-                <div className="overflow-y-auto p-4 max-h-[calc(85vh-80px)]">
+                <div className="overflow-y-auto px-5 sm:px-7 py-5 flex-1">
                     {isDetailLoading ? (
-                        <div className="flex justify-center items-center py-12">
-                            <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-                            <span className="ml-3 text-gray-500">加载中...</span>
-                        </div>
-                    ) : selectedSession ? (
-                        <div className="space-y-4">
-                            {selectedSession.messages.map((msg, idx) => {
-                                const roleInfo = getRoleLabel(msg.role)
-                                return (
-                                    <div
-                                        key={idx}
-                                        className={`border-l-4 rounded-lg p-4 ${getRoleColor(msg.role)}`}
-                                    >
-                                        <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                                            <span className="font-semibold">
-                                                {roleInfo.emoji} {roleInfo.text}
-                                            </span>
-                                            <span className="text-xs text-gray-400 flex items-center gap-1">
-                                                <Calendar className="h-3 w-3" />
-                                                {formatDate(msg.created_at)}
-                                            </span>
-                                        </div>
-                                        <div className="prose dark:prose-invert max-w-none">
-                                            <MarkdownRenderer content={msg.content} />
-                                        </div>
+                        <p className="text-sm text-ink-3 py-8">正在读取…</p>
+                    ) : selectedSession && selectedSession.messages.length > 0 ? (
+                        <ol>
+                            {selectedSession.messages.map((msg, idx) => (
+                                <li key={idx} className="grid sm:grid-cols-[6rem_1fr] gap-x-5 gap-y-1 py-4 border-b border-line last:border-0">
+                                    <div className="text-[0.8125rem]">
+                                        <span className={`font-medium ${roleTone(msg.role)}`}>{ROLE_NAMES[msg.role] ?? msg.role}</span>
+                                        <span className="block text-ink-3 tabular-nums">{formatShortDate(msg.created_at)}</span>
                                     </div>
-                                )
-                            })}
-                        </div>
+                                    <div className={`min-w-0 text-[0.9375rem] ${msg.role === 'user' ? 'font-serif font-semibold text-[1.0625rem]' : ''}`}>
+                                        <MarkdownRenderer content={msg.content} />
+                                    </div>
+                                </li>
+                            ))}
+                        </ol>
                     ) : (
-                        <div className="text-center text-gray-400 py-12">
-                            未找到会话内容
-                        </div>
+                        <p className="text-sm text-ink-3 py-8">这次会话没有留下任何内容，可能在开始前就中断了。</p>
                     )}
                 </div>
             </div>

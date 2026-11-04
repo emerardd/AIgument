@@ -1,34 +1,21 @@
-import { useEffect } from 'react'
-import { useState } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { useEffect, useState } from 'react'
 import { useHistoryStore } from '@/stores/historyStore'
 import { useToast } from '@/hooks/useToast'
 import { HistoryListSkeleton } from '@/components/ui/Skeleton'
 import { downloadSessionExport } from '@/utils/download'
-import { Trash2, Eye, Download, Calendar, MessageSquare, Loader2, Search, X, AlertCircle, CircleSlash, PauseCircle } from 'lucide-react'
-import type { SessionStatus } from '@/types'
+import { SESSION_TYPE_LABELS, STATUS_LABELS, formatShortDate } from '@/utils/sessionLabels'
+import type { SessionType } from '@/types'
+import { Download, Search, Trash2, X } from 'lucide-react'
 
-// Completed sessions need no badge; other states carry an icon and a label, not color alone.
-const STATUS_BADGES: Partial<Record<SessionStatus, { text: string; icon: typeof AlertCircle; className: string }>> = {
-    running: { text: '进行中', icon: Loader2, className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
-    failed: { text: '失败', icon: AlertCircle, className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
-    interrupted: { text: '已中断', icon: PauseCircle, className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' },
-    cancelled: { text: '已取消', icon: CircleSlash, className: 'bg-muted text-muted-foreground' },
-}
-
-function StatusBadge({ status }: { status?: SessionStatus }) {
-    const badge = status ? STATUS_BADGES[status] : undefined
-    if (!badge) return null
-    const Icon = badge.icon
-    return (
-        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${badge.className}`}>
-            <Icon className="h-3 w-3" />
-            {badge.text}
-        </span>
-    )
-}
+const FILTERS: { id: SessionType | 'all'; label: string }[] = [
+    { id: 'all', label: '全部' },
+    { id: 'debate', label: '对抗辩论' },
+    { id: 'dialectic', label: '辩证推演' },
+    { id: 'dual_chat', label: '角色对话' },
+    { id: 'qa_socratic', label: '问答' },
+    { id: 'chat', label: '旧版对话' },
+    { id: 'qa', label: '旧版问答' },
+]
 
 interface HistoryListProps {
     onViewDetail: (id: number) => void
@@ -36,19 +23,8 @@ interface HistoryListProps {
 
 export function HistoryList({ onViewDetail }: HistoryListProps) {
     const {
-        items,
-        total,
-        hasMore,
-        isLoading,
-        isLoadingMore,
-        error,
-        filter,
-        searchQuery,
-        fetchHistory,
-        loadMore,
-        deleteSession,
-        setFilter,
-        setSearchQuery,
+        items, total, hasMore, isLoading, isLoadingMore, error, filter, searchQuery,
+        fetchHistory, loadMore, deleteSession, setFilter, setSearchQuery,
     } = useHistoryStore()
     const toast = useToast()
     const [searchText, setSearchText] = useState(searchQuery)
@@ -58,214 +34,125 @@ export function HistoryList({ onViewDetail }: HistoryListProps) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
-    const handleExport = async (id: number, format: 'md' | 'json' | 'txt') => {
+    const handleExport = async (id: number) => {
         try {
-            await downloadSessionExport(id, format)
-            toast.success(`导出成功: session_${id}.${format}`)
+            await downloadSessionExport(id, 'md')
+            toast.success(`已导出 session_${id}.md`)
         } catch {
             toast.error('导出失败，请重试')
         }
     }
 
-    const formatDate = (dateStr: string) => {
-        const date = new Date(dateStr)
-        return date.toLocaleString('zh-CN', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-        })
-    }
-
-    const getTypeLabel = (type: string) => {
-        const labels: Record<string, { text: string; color: string }> = {
-            debate: { text: '辩论', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
-            dialectic: { text: '辩证法', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
-            chat: { text: '对话', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
-            qa: { text: '问答', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
-            dual_chat: { text: '角色对话', color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300' },
-            qa_socratic: { text: '苏格拉底问答', color: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-300' },
-        }
-        return labels[type] || { text: type, color: 'bg-gray-100 text-gray-700' }
-    }
-
-    const handleSearchSubmit = (e: React.FormEvent) => {
-        e.preventDefault()
-        setSearchQuery(searchText)
-    }
-
-    const handleClearSearch = () => {
-        setSearchText('')
-        setSearchQuery('')
-    }
-
-    if (isLoading) {
-        return <HistoryListSkeleton />
-    }
-
-    if (error) {
-        return (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg">
-                错误：{error}
-            </div>
-        )
+    const handleDelete = async (id: number, topic: string) => {
+        if (!confirm(`删除“${topic || '未命名'}”？删除后不能恢复。`)) return
+        await deleteSession(id)
+        toast.success('已删除')
     }
 
     return (
-        <div className="space-y-6">
-            {/* 过滤器 */}
-            <div className="flex gap-2 flex-wrap">
-                {(['all', 'debate', 'dialectic', 'chat', 'qa', 'dual_chat', 'qa_socratic'] as const).map((f) => (
-                    <Button
-                        key={f}
-                        variant={filter === f ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setFilter(f)}
-                        className={filter === f ? 'bg-gradient-to-r from-blue-500 to-cyan-500' : ''}
-                    >
-                        {f === 'all'
-                            ? '全部'
-                            : f === 'debate'
-                                ? '辩论'
-                                : f === 'dialectic'
-                                    ? '辩证法'
-                                    : f === 'chat'
-                                        ? '对话'
-                                        : f === 'qa'
-                                            ? '问答'
-                                            : f === 'dual_chat'
-                                                ? '角色对话'
-                                                : '苏格拉底问答'}
-                    </Button>
-                ))}
-            </div>
+        <div>
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <div className="flex flex-wrap gap-1.5" role="group" aria-label="按类型筛选">
+                    {FILTERS.map(f => (
+                        <button key={f.id} type="button" className="chip" aria-pressed={filter === f.id} onClick={() => setFilter(f.id)}>
+                            {f.label}
+                        </button>
+                    ))}
+                </div>
 
-            <form onSubmit={handleSearchSubmit} className="flex gap-2">
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
+                <form
+                    onSubmit={(e) => { e.preventDefault(); setSearchQuery(searchText) }}
+                    className="field flex items-center gap-2 pl-3 pr-1 h-9 w-full sm:w-64"
+                    role="search"
+                >
+                    <Search className="h-4 w-4 text-ink-3 shrink-0" aria-hidden="true" />
+                    <input
                         value={searchText}
                         onChange={(e) => setSearchText(e.target.value)}
-                        placeholder="按主题搜索历史记录..."
-                        className="pl-9 pr-9"
+                        placeholder="搜索话题"
+                        aria-label="搜索话题"
+                        className="flex-1 min-w-0 text-sm placeholder:text-ink-3"
                     />
                     {searchText && (
                         <button
                             type="button"
-                            onClick={handleClearSearch}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                            title="清除搜索"
+                            onClick={() => { setSearchText(''); setSearchQuery('') }}
+                            className="p-1 text-ink-3 hover:text-ink"
+                            aria-label="清除搜索"
                         >
                             <X className="h-4 w-4" />
                         </button>
                     )}
-                </div>
-                <Button type="submit" variant="outline">
-                    搜索
-                </Button>
-            </form>
+                </form>
+            </div>
 
-            {/* 列表 */}
-            {items.length === 0 ? (
-                <Card className="p-8 text-center">
-                    <div className="text-gray-400">
-                        <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p>{searchQuery ? '没有匹配的历史记录' : '暂无历史记录'}</p>
-                    </div>
-                </Card>
+            {isLoading ? (
+                <HistoryListSkeleton />
+            ) : error ? (
+                <div className="border-l-2 border-destructive bg-surface px-4 py-3 text-sm" role="alert">
+                    历史记录读取失败：{error}
+                </div>
+            ) : items.length === 0 ? (
+                <p className="py-10 text-ink-3 border-t border-line">
+                    {searchQuery ? `没有话题包含“${searchQuery}”。` : '这里还是空的。完成一次辩论、对话或问答后会出现在这里。'}
+                </p>
             ) : (
-                <div className="space-y-4">
-                    {items.map((item) => {
-                        const typeInfo = getTypeLabel(item.type)
-                        return (
-                            <Card
-                                key={item.session_id}
-                                className="hover:shadow-lg transition-all duration-300 border-l-4 border-l-blue-500"
-                            >
-                                <CardContent className="p-4">
-                                    <div className="flex justify-between items-start gap-4">
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeInfo.color}`}>
-                                                    {typeInfo.text}
-                                                </span>
-                                                <StatusBadge status={item.status} />
-                                                <h3 className="font-semibold text-lg truncate">
-                                                    {item.topic || '未命名会话'}
-                                                </h3>
-                                            </div>
-                                            <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
-                                                <span className="flex items-center gap-1">
-                                                    <Calendar className="h-3 w-3" />
-                                                    {formatDate(item.start_time)}
-                                                </span>
-                                                <span className="flex items-center gap-1">
-                                                    <MessageSquare className="h-3 w-3" />
-                                                    {item.message_count} 条消息
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-2 flex-shrink-0">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => onViewDetail(item.session_id)}
-                                                title="查看详情"
-                                            >
-                                                <Eye className="h-4 w-4" />
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handleExport(item.session_id, 'md')}
-                                                title="导出为 Markdown"
-                                            >
-                                                <Download className="h-4 w-4" />
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={async () => {
-                                                    if (confirm('确定要删除这条记录吗？')) {
-                                                        await deleteSession(item.session_id)
-                                                        toast.success('删除成功')
-                                                    }
-                                                }}
-                                                className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                                title="删除"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )
-                    })}
-                    <div className="flex flex-col items-center gap-3 pt-2">
-                        <div className="text-xs text-muted-foreground">
-                            已显示 {items.length} / {total} 条记录
-                        </div>
+                <>
+                    <ul className="border-t border-line">
+                        {items.map((item) => {
+                            const status = item.status ? STATUS_LABELS[item.status] : undefined
+                            return (
+                                <li key={item.session_id} className="group grid grid-cols-[1fr_auto] sm:grid-cols-[6.5rem_1fr_auto_auto] items-baseline gap-x-4 gap-y-1 py-3.5 border-b border-line">
+                                    <span className="hidden sm:block text-[0.8125rem] text-ink-3">{SESSION_TYPE_LABELS[item.type] ?? item.type}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => onViewDetail(item.session_id)}
+                                        className="min-w-0 text-left hover:underline underline-offset-4 decoration-line-strong"
+                                    >
+                                        <span className="block truncate">{item.topic || '未命名'}</span>
+                                        <span className="sm:hidden block text-[0.8125rem] text-ink-3 mt-0.5">
+                                            {SESSION_TYPE_LABELS[item.type] ?? item.type}，{item.message_count} 条
+                                        </span>
+                                    </button>
+                                    <span className="hidden sm:flex items-baseline gap-4 text-[0.8125rem] text-ink-3 tabular-nums">
+                                        {status && <span className={item.status === 'failed' ? 'text-destructive' : 'text-ink-2'}>{status}</span>}
+                                        <span>{item.message_count} 条</span>
+                                        <time dateTime={item.start_time}>{formatShortDate(item.start_time)}</time>
+                                    </span>
+                                    <span className="flex items-center gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition-opacity">
+                                        {status && <span className="sm:hidden text-[0.8125rem] text-ink-2 mr-2">{status}</span>}
+                                        <button
+                                            type="button"
+                                            onClick={() => handleExport(item.session_id)}
+                                            className="p-1.5 rounded text-ink-3 hover:text-ink hover:bg-sunken"
+                                            title="导出为 Markdown"
+                                            aria-label={`导出“${item.topic}”`}
+                                        >
+                                            <Download className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDelete(item.session_id, item.topic)}
+                                            className="p-1.5 rounded text-ink-3 hover:text-destructive hover:bg-sunken"
+                                            title="删除"
+                                            aria-label={`删除“${item.topic}”`}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </span>
+                                </li>
+                            )
+                        })}
+                    </ul>
+                    <div className="flex items-center justify-between pt-4 text-[0.8125rem] text-ink-3">
+                        <span>{items.length} / {total} 条</span>
                         {hasMore && (
-                            <Button
-                                variant="outline"
-                                onClick={loadMore}
-                                disabled={isLoadingMore}
-                                className="min-w-36"
-                            >
-                                {isLoadingMore ? (
-                                    <>
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                        加载中
-                                    </>
-                                ) : (
-                                    '加载更多'
-                                )}
-                            </Button>
+                            <button type="button" onClick={loadMore} disabled={isLoadingMore} className="btn-line">
+                                {isLoadingMore ? '加载中…' : '加载更多'}
+                            </button>
                         )}
                     </div>
-                </div>
+                </>
             )}
         </div>
     )

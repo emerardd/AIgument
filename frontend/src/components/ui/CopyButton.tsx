@@ -30,13 +30,13 @@ export function CopyButton({ text, className = '', size = 'sm' }: CopyButtonProp
         <button
             onClick={handleCopy}
             className={`
-                ${sizeClasses} rounded-lg flex items-center justify-center
-                text-muted-foreground hover:text-foreground
-                hover:bg-muted/50 transition-all duration-200
-                ${copied ? 'text-emerald-500' : ''}
+                ${sizeClasses} rounded flex items-center justify-center
+                text-ink-3 hover:text-ink hover:bg-sunken transition-colors
+                ${copied ? 'text-ink' : ''}
                 ${className}
             `}
             title={copied ? '已复制' : '复制'}
+            aria-label={copied ? '已复制' : '复制'}
         >
             {copied ? (
                 <Check className={iconClasses} />

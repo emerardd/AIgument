@@ -1,100 +1,122 @@
 import { lazy, Suspense } from 'react'
 import { useAgentDebateStore } from '@/stores/agentDebateStore'
 import type { AgentDebateMessage } from '@/stores/agentDebateStore'
+import type { AgentThinking } from '@/types'
 import { CopyButton } from '@/components/ui/CopyButton'
 import { ThinkingBubble } from './ThinkingBubble'
-import { EvaluationPanel } from './ScorePanel'
-import { Loader2, ThumbsDown, ThumbsUp } from 'lucide-react'
+import { LiveScore, RoundRuling } from './ScorePanel'
 
 const MarkdownRenderer = lazy(() =>
     import('@/components/ui/MarkdownRenderer').then((module) => ({ default: module.MarkdownRenderer }))
 )
 
-function ArgumentBubble({ message }: { message: AgentDebateMessage }) {
-    const isPro = message.role === '正方'
+/*
+ * The board: a vertical spine down the middle (left edge on phones).
+ * 正方 moves sit left of it, 反方 moves right of it, one row per move,
+ * and each round's ruling is laid across the spine.
+ */
+
+function Speech({ side, message, thinking, showThinking }: {
+    side: 'pro' | 'con'
+    message?: AgentDebateMessage
+    thinking?: AgentThinking
+    showThinking: boolean
+}) {
+    const isPro = side === 'pro'
+    const column = isPro ? 'md:col-start-1 md:pr-10' : 'md:col-start-3 md:row-start-2 md:pl-10'
+    const edge = isPro ? 'md:border-l-0 md:border-r-2 md:border-r-pro border-l-2 border-l-pro' : 'border-l-2 border-l-con'
+
     return (
-        <div className={`flex gap-2 sm:gap-4 animate-slide-up ${isPro ? '' : 'flex-row-reverse'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 shadow-sm ${isPro
-                ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
-                : 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400'}`}
-            >
-                {isPro ? <ThumbsUp className="w-4 h-4" /> : <ThumbsDown className="w-4 h-4" />}
+        <div className={`relative pl-9 md:pl-0 ${column}`}>
+            {/* the stone on the spine */}
+            <span
+                className={`stone stone-${side} absolute top-[0.45rem] left-3 -translate-x-1/2 md:translate-x-0 ${isPro ? 'md:left-auto md:-right-[0.35rem]' : 'md:-left-[0.35rem]'} ring-4 ring-board`}
+                aria-hidden="true"
+            />
+            <div className={`text-[0.8125rem] mb-1.5 flex items-center gap-2 ${isPro ? 'md:justify-end' : ''}`}>
+                <span className={isPro ? 'text-pro font-medium' : 'text-con font-medium'}>{isPro ? '正方' : '反方'}</span>
             </div>
 
-            <div className={`max-w-[90%] sm:max-w-[85%] space-y-2 ${isPro ? 'items-start' : 'items-end flex flex-col'}`}>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground">{message.role}</span>
-                    {message.confidence !== undefined && (
-                        <>
-                            <span>·</span>
-                            <span className="text-primary">置信度 {Math.round(message.confidence * 100)}%</span>
-                        </>
-                    )}
+            {showThinking && thinking && (
+                <div className={`mb-2 ${isPro ? 'md:flex md:justify-end' : ''}`}>
+                    <ThinkingBubble thinking={thinking} />
                 </div>
+            )}
 
-                <div className={`relative group card-modern p-5 text-sm leading-relaxed shadow-sm hover:shadow-md transition-shadow duration-300 ${isPro
-                    ? 'rounded-tl-none border-l-2 border-l-blue-500'
-                    : 'rounded-tr-none border-r-2 border-r-orange-500'}`}
-                >
-                    {message.content ? (
-                        <>
-                            <Suspense fallback={<p className="whitespace-pre-wrap">{message.content}</p>}>
-                                <MarkdownRenderer content={message.content} />
-                            </Suspense>
-                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <CopyButton text={message.content} />
-                            </div>
-                        </>
-                    ) : (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            <span>正在发言...</span>
+            <div className={`group relative bg-surface rounded-md px-5 py-4 text-[0.9375rem] ${edge}`}>
+                {message?.content ? (
+                    <>
+                        <Suspense fallback={<p className="whitespace-pre-wrap">{message.content}</p>}>
+                            <MarkdownRenderer content={message.content} />
+                        </Suspense>
+                        <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                            <CopyButton text={message.content} />
                         </div>
-                    )}
-                </div>
+                    </>
+                ) : (
+                    <p className="text-sm text-ink-3">正在组织发言…</p>
+                )}
             </div>
         </div>
     )
 }
 
-/** Debate content grouped by round: thinking, arguments and the round's evaluation. */
 export function AgentDebateTranscript() {
-    const { messages, thinkings, evaluations, currentRound, showThinking, showScores } = useAgentDebateStore()
+    const {
+        topic, messages, thinkings, evaluations, standings, currentRound,
+        showThinking, showScores, isLoading,
+    } = useAgentDebateStore()
+
+    if (!topic) return null
     const rounds = Array.from({ length: Math.max(currentRound, 1) }, (_, i) => i + 1)
 
     return (
-        <>
-            {rounds.map((round) => {
-                const roundMessages = messages.filter(msg => msg.round === round)
-                const roundThinkings = thinkings.filter(t => t.round === round)
-                const roundEvaluation = evaluations.find(e => e.round === round)
-                // Before the first round starts there is nothing to show.
-                if (round > currentRound && roundMessages.length === 0 && roundThinkings.length === 0) return null
+        <section aria-label="辩论过程">
+            <div className="sticky top-[57px] md:top-0 z-20 bg-board/95 backdrop-blur-[2px] border-b border-line py-3 mb-6 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+                <span className="flex items-center gap-2 text-sm"><span className="stone stone-pro" aria-hidden="true" />正方</span>
+                {standings && isLoading ? <LiveScore standings={standings} /> : <span />}
+                <span className="flex items-center justify-end gap-2 text-sm">反方<span className="stone stone-con" aria-hidden="true" /></span>
+            </div>
 
-                return (
-                    <div key={round} className="space-y-4">
-                        <div className="flex items-center gap-3">
-                            <div className="h-px flex-1 bg-border" />
-                            <span className="text-sm font-medium text-muted-foreground px-3 py-1 rounded-full bg-muted/30">
-                                第 {round} 轮
-                            </span>
-                            <div className="h-px flex-1 bg-border" />
-                        </div>
+            <h2 className="display text-[1.5rem] sm:text-[1.875rem] text-center max-w-[32rem] mx-auto mb-10">{topic}</h2>
 
-                        {showThinking && roundThinkings.length > 0 && (
-                            <div className="space-y-2">
-                                {roundThinkings.map((thinking, idx) => (
-                                    <ThinkingBubble key={idx} thinking={thinking} />
-                                ))}
+            <div className="relative">
+                <div className="absolute top-0 bottom-0 left-3 md:left-1/2 w-px bg-line-strong md:-translate-x-1/2" aria-hidden="true" />
+
+                {rounds.map((round) => {
+                    const pro = messages.find(m => m.round === round && m.role === '正方')
+                    const con = messages.find(m => m.round === round && m.role === '反方')
+                    const proThinking = thinkings.find(t => t.round === round && t.side === 'pro')
+                    const conThinking = thinkings.find(t => t.round === round && t.side === 'con')
+                    const ruling = evaluations.find(e => e.round === round)
+                    if (round > currentRound && !pro && !con && !proThinking) return null
+
+                    return (
+                        <div key={round} className="relative pb-12">
+                            <div className="relative z-10 flex md:justify-center mb-6">
+                                <span className="bg-board px-3 py-0.5 rounded-full border border-line-strong text-[0.8125rem] text-ink-2">
+                                    第 {round} 轮
+                                </span>
                             </div>
-                        )}
 
-                        {roundMessages.map((msg, idx) => <ArgumentBubble key={idx} message={msg} />)}
+                            <div className="grid md:grid-cols-[1fr_0_1fr] gap-y-8">
+                                {(pro || proThinking) && (
+                                    <Speech side="pro" message={pro} thinking={proThinking} showThinking={showThinking} />
+                                )}
+                                {(con || conThinking) && (
+                                    <Speech side="con" message={con} thinking={conThinking} showThinking={showThinking} />
+                                )}
+                            </div>
 
-                        {showScores && roundEvaluation && <EvaluationPanel evaluation={roundEvaluation} />}
-                    </div>
-                )
-            })}
-        </>
+                            {showScores && ruling && (
+                                <div className="mt-8 pl-9 md:pl-0">
+                                    <RoundRuling evaluation={ruling} />
+                                </div>
+                            )}
+                        </div>
+                    )
+                })}
+            </div>
+        </section>
     )
 }

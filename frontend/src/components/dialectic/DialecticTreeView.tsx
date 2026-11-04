@@ -7,23 +7,18 @@ interface DialecticTreeViewProps {
     tree: DialecticTree | null
 }
 
-function DialecticNode({ data }: { data: { label: string; kind: string; round: number } }) {
-    const kind = data.kind
-    const color =
-        kind === 'thesis'
-            ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
-            : kind === 'antithesis'
-                ? 'border-amber-400 bg-amber-50 text-amber-700'
-                : 'border-violet-400 bg-violet-50 text-violet-700'
+const KIND = {
+    thesis: { label: '正题', className: 'border-l-pro' },
+    antithesis: { label: '反题', className: 'border-l-con' },
+    synthesis: { label: '合题', className: 'border-l-ink' },
+} as const
 
+function DialecticNode({ data }: { data: { label: string; kind: string; round: number } }) {
+    const kind = KIND[data.kind as keyof typeof KIND] ?? KIND.synthesis
     return (
-        <div className={`min-w-[180px] max-w-[220px] border rounded-lg p-3 shadow-sm ${color}`}>
-            <div className="text-[10px] uppercase tracking-wider opacity-70">
-                {kind} · 第{data.round}轮
-            </div>
-            <div className="text-xs font-medium mt-1 line-clamp-4">
-                {data.label}
-            </div>
+        <div className={`min-w-[180px] max-w-[220px] bg-surface border border-line border-l-[3px] rounded-md px-3 py-2 ${kind.className}`}>
+            <div className="text-[0.6875rem] text-ink-3">第 {data.round} 轮{kind.label}</div>
+            <div className="text-xs mt-1 line-clamp-4 leading-relaxed">{data.label}</div>
         </div>
     )
 }
@@ -34,14 +29,12 @@ export function DialecticTreeView({ tree }: DialecticTreeViewProps) {
 
     if (!tree || tree.nodes.length === 0) {
         return (
-            <div className="p-4 rounded-xl bg-muted/20 text-sm text-muted-foreground text-center">
-                暂无观点进化树
-            </div>
+            <p className="text-sm text-ink-3 border-t border-line pt-4">第一轮结束后，这里会画出观点是怎么演变的。</p>
         )
     }
 
     return (
-        <div className="h-[520px] rounded-xl border border-border/50 bg-background/60">
+        <div className="h-[520px] rounded-lg border border-line bg-sunken/40">
             <ReactFlow
                 nodes={nodes}
                 edges={edges}
@@ -52,8 +45,8 @@ export function DialecticTreeView({ tree }: DialecticTreeViewProps) {
                 nodesConnectable={false}
                 zoomOnScroll
             >
-                <Background gap={18} size={1} />
-                <MiniMap />
+                <Background gap={22} size={1} color="var(--line-strong)" />
+                <MiniMap pannable zoomable maskColor="color-mix(in srgb, var(--board) 70%, transparent)" nodeColor="var(--line-strong)" />
                 <Controls />
             </ReactFlow>
         </div>

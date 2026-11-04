@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Network, GitBranch, Target, Trophy, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { MermaidRenderer } from '@/components/ui/MermaidRenderer'
 import { buildApiUrl } from '@/config/env'
 
@@ -89,17 +89,13 @@ export function ArgumentGraphView({ sessionId }: ArgumentGraphViewProps) {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
-            </div>
+            <p className="text-sm text-ink-3 py-3 border-y border-line" role="status">正在生成论点图谱…</p>
         )
     }
 
     if (error) {
         return (
-            <div className="p-4 rounded-xl bg-destructive/5 text-destructive text-sm text-center">
-                {error}
-            </div>
+            <p className="text-sm text-ink-2 py-3 border-y border-line" role="alert">论点图谱没能生成：{error}</p>
         )
     }
 
@@ -108,260 +104,133 @@ export function ArgumentGraphView({ sessionId }: ArgumentGraphViewProps) {
     }
 
     return (
-        <div className="space-y-4">
-            {/* 头部 */}
+        <section aria-labelledby="graph-title">
             <button
+                type="button"
                 onClick={() => setExpanded(!expanded)}
-                className="w-full flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors"
+                aria-expanded={expanded}
+                className="w-full flex items-baseline gap-3 py-3 border-y border-line text-left"
             >
-                <div className="flex items-center gap-2">
-                    <Network className="w-5 h-5 text-primary" />
-                    <span className="font-medium">论点图谱分析</span>
-                    <span className="text-xs text-muted-foreground px-2 py-0.5 bg-muted rounded-full">
-                        {scores.total_arguments} 论点 · {scores.total_relations} 关系
-                    </span>
-                </div>
-                {expanded ? (
-                    <ChevronUp className="w-5 h-5 text-muted-foreground" />
-                ) : (
-                    <ChevronDown className="w-5 h-5 text-muted-foreground" />
-                )}
+                <ChevronDown className={`w-4 h-4 self-center text-ink-3 transition-transform ${expanded ? '' : '-rotate-90'}`} aria-hidden="true" />
+                <h2 id="graph-title" className="text-lg">论点图谱</h2>
+                <span className="text-[0.8125rem] text-ink-3">{scores.total_arguments} 个论点，{scores.total_relations} 条关系</span>
             </button>
 
             {expanded && (
-                <div className="space-y-6 animate-fade-in">
-                    {/* 得分概览 */}
+                <div className="arrive pt-6 space-y-10">
                     <ScoreOverview scores={scores} />
 
-                    {/* 最强论点 */}
-                    <div className="grid md:grid-cols-2 gap-4">
-                        <StrongestArguments
-                            title="正方最强论点"
-                            arguments={graph.summary.pro_strongest}
-                            side="pro"
-                        />
-                        <StrongestArguments
-                            title="反方最强论点"
-                            arguments={graph.summary.con_strongest}
-                            side="con"
-                        />
+                    <div className="grid md:grid-cols-2 gap-8">
+                        <StrongestArguments title="正方最有力的论点" arguments={graph.summary.pro_strongest} side="pro" />
+                        <StrongestArguments title="反方最有力的论点" arguments={graph.summary.con_strongest} side="con" />
                     </div>
 
-                    {/* 图谱可视化 */}
                     <GraphVisualization nodes={graph.nodes} edges={graph.edges} />
 
-                    {/* Mermaid 图谱可视化 */}
                     {mermaid && (
                         <div className="space-y-3">
-                            <div className="p-4 rounded-xl bg-muted/20 border border-border/50">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <GitBranch className="w-4 h-4 text-primary" />
-                                    <span className="text-sm font-medium">论点关系图</span>
-                                </div>
+                            <h3 className="text-base">论点关系图</h3>
+                            <div className="panel p-4">
                                 <MermaidRenderer code={mermaid} className="min-h-[200px]" />
                             </div>
-                            <details className="p-3 rounded-lg bg-muted/20">
-                                <summary className="text-xs text-muted-foreground cursor-pointer">
-                                    查看 Mermaid 图表代码
-                                </summary>
-                                <pre className="mt-2 text-xs overflow-x-auto p-2 bg-muted/30 rounded">
-                                    {mermaid}
-                                </pre>
+                            <details className="text-[0.8125rem]">
+                                <summary className="text-ink-3 cursor-pointer hover:text-ink">查看 Mermaid 代码</summary>
+                                <pre className="mt-2 overflow-x-auto p-3 bg-sunken rounded-md">{mermaid}</pre>
                             </details>
                         </div>
                     )}
                 </div>
             )}
-        </div>
+        </section>
     )
 }
 
 function ScoreOverview({ scores }: { scores: GraphScores }) {
-    const getLeaderText = () => {
-        if (scores.leader === 'tie') return '势均力敌'
-        return scores.leader === 'pro' ? '正方领先' : '反方领先'
-    }
-
+    const leader = scores.leader === 'tie' ? '图谱上双方持平' : scores.leader === 'pro' ? '图谱上正方占优' : '图谱上反方占优'
     return (
-        <div className="p-4 rounded-xl bg-gradient-to-r from-blue-500/5 to-orange-500/5 border border-border/50">
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-medium">图谱分析得分</span>
-                </div>
-                <span className={`
-                    text-xs px-2 py-1 rounded-full font-medium
-                    ${scores.leader === 'pro' ? 'bg-blue-500/10 text-blue-500' :
-                        scores.leader === 'con' ? 'bg-orange-500/10 text-orange-500' :
-                            'bg-muted text-muted-foreground'}
-                `}>
-                    {getLeaderText()}
-                </span>
+        <div>
+            <div className="flex items-baseline justify-between mb-2">
+                <span className="numeral text-2xl text-pro">{scores.pro_score}</span>
+                <span className="text-sm text-ink-2">{leader}</span>
+                <span className="numeral text-2xl text-con">{scores.con_score}</span>
             </div>
-
-            <div className="space-y-3">
-                {/* 得分条 */}
-                <div className="flex justify-between text-sm mb-1">
-                    <span className="text-blue-500 font-medium">正方 {scores.pro_score}</span>
-                    <span className="text-orange-500 font-medium">反方 {scores.con_score}</span>
-                </div>
-                <div className="h-3 bg-muted rounded-full overflow-hidden flex">
-                    <div
-                        className="h-full bg-blue-500 transition-all duration-500"
-                        style={{ width: `${scores.pro_percentage}%` }}
-                    />
-                    <div
-                        className="h-full bg-orange-500 transition-all duration-500"
-                        style={{ width: `${scores.con_percentage}%` }}
-                    />
-                </div>
-
-                {/* 统计信息 */}
-                <div className="grid grid-cols-2 gap-4 mt-4">
-                    <div className="text-center p-2 rounded-lg bg-blue-500/5">
-                        <div className="text-lg font-bold text-blue-500">{scores.pro_unaddressed}</div>
-                        <div className="text-xs text-muted-foreground">正方未被反驳</div>
-                    </div>
-                    <div className="text-center p-2 rounded-lg bg-orange-500/5">
-                        <div className="text-lg font-bold text-orange-500">{scores.con_unaddressed}</div>
-                        <div className="text-xs text-muted-foreground">反方未被反驳</div>
-                    </div>
-                </div>
+            <div className="h-2 flex gap-[2px]" role="img" aria-label={`正方 ${scores.pro_percentage}%，反方 ${scores.con_percentage}%`}>
+                <div className="h-full bg-pro rounded-l-full" style={{ width: `${scores.pro_percentage}%` }} />
+                <div className="h-full bg-con rounded-r-full" style={{ width: `${scores.con_percentage}%` }} />
+            </div>
+            <div className="flex justify-between mt-2 text-[0.8125rem] text-ink-3 tabular-nums">
+                <span>{scores.pro_unaddressed} 个论点对方没有回应</span>
+                <span>{scores.con_unaddressed} 个论点对方没有回应</span>
             </div>
         </div>
     )
 }
 
-function StrongestArguments({
-    title,
-    arguments: args,
-    side
-}: {
+const STRENGTH: Record<string, string> = { strong: '强', moderate: '中等', weak: '弱' }
+
+function StrongestArguments({ title, arguments: args, side }: {
     title: string
     arguments: ArgumentNode[]
     side: 'pro' | 'con'
 }) {
-    const bgColor = side === 'pro' ? 'bg-blue-500/5 border-blue-500/20' : 'bg-orange-500/5 border-orange-500/20'
-    const iconColor = side === 'pro' ? 'text-blue-500' : 'text-orange-500'
-
     return (
-        <div className={`p-4 rounded-xl border ${bgColor}`}>
-            <div className="flex items-center gap-2 mb-3">
-                <Trophy className={`w-4 h-4 ${iconColor}`} />
-                <span className="text-sm font-medium">{title}</span>
-            </div>
-
+        <div>
+            <h3 className="font-sans text-sm font-medium flex items-center gap-2 mb-3">
+                <span className={`stone stone-${side}`} aria-hidden="true" />
+                {title}
+            </h3>
             {args.length > 0 ? (
-                <ul className="space-y-2">
-                    {args.map((arg, idx) => (
-                        <li key={arg.id} className="text-xs">
-                            <div className="flex items-start gap-2">
-                                <span className={`font-bold ${iconColor}`}>{idx + 1}.</span>
-                                <div>
-                                    <p className="text-muted-foreground line-clamp-2">
-                                        {arg.content.slice(0, 100)}...
-                                    </p>
-                                    <div className="flex gap-2 mt-1">
-                                        <span className="px-1.5 py-0.5 bg-muted rounded text-[10px]">
-                                            {arg.strength}
-                                        </span>
-                                        {!arg.is_rebutted && (
-                                            <span className="px-1.5 py-0.5 bg-green-500/10 text-green-500 rounded text-[10px]">
-                                                未被反驳
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
+                <ol className="space-y-3 list-decimal pl-5 marker:text-ink-3 text-sm">
+                    {args.map((arg) => (
+                        <li key={arg.id}>
+                            <p className="text-ink-2 line-clamp-3">{arg.key_points[0] || arg.content}</p>
+                            <p className="text-[0.75rem] text-ink-3 mt-0.5">
+                                强度{STRENGTH[arg.strength?.toLowerCase()] ?? arg.strength}{arg.is_rebutted ? '，已被反驳' : '，对方没有回应'}
+                            </p>
                         </li>
                     ))}
-                </ul>
+                </ol>
             ) : (
-                <p className="text-xs text-muted-foreground">暂无数据</p>
+                <p className="text-sm text-ink-3">没有可列出的论点。</p>
             )}
         </div>
     )
 }
 
-function GraphVisualization({
-    nodes,
-    edges
-}: {
-    nodes: ArgumentNode[]
-    edges: ArgumentEdge[]
-}) {
-    // 简单的节点可视化
+function GraphVisualization({ nodes, edges }: { nodes: ArgumentNode[]; edges: ArgumentEdge[] }) {
     const nodesByRound = useMemo(() => {
         const grouped: Record<number, ArgumentNode[]> = {}
         nodes.forEach(node => {
-            if (!grouped[node.round]) {
-                grouped[node.round] = []
-            }
-            grouped[node.round].push(node)
+            (grouped[node.round] ??= []).push(node)
         })
         return grouped
     }, [nodes])
 
-    return (
-        <div className="p-4 rounded-xl bg-muted/20 border border-border/50">
-            <div className="flex items-center gap-2 mb-4">
-                <GitBranch className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium">论点结构</span>
-            </div>
+    const attacks = edges.filter(e => e.relation === 'attacks').length
+    const supports = edges.filter(e => e.relation === 'builds_on').length
 
-            <div className="space-y-4">
+    return (
+        <div>
+            <div className="flex items-baseline justify-between mb-3">
+                <h3 className="text-base">每轮的论点</h3>
+                <span className="text-[0.8125rem] text-ink-3">反驳 {attacks} 次，延续 {supports} 次</span>
+            </div>
+            <div className="border-t border-line">
                 {Object.entries(nodesByRound).map(([round, roundNodes]) => (
-                    <div key={round} className="space-y-2">
-                        <div className="text-xs text-muted-foreground">第 {round} 轮</div>
-                        <div className="flex gap-2">
-                            {roundNodes.map(node => {
-                                const isPro = node.author === 'pro'
-                                return (
-                                    <div
-                                        key={node.id}
-                                        className={`
-                                            flex-1 p-3 rounded-lg border text-xs
-                                            ${isPro
-                                                ? 'bg-blue-500/5 border-blue-500/30'
-                                                : 'bg-orange-500/5 border-orange-500/30'
-                                            }
-                                            ${node.is_rebutted ? 'opacity-60' : ''}
-                                        `}
-                                    >
-                                        <div className={`font-medium mb-1 ${isPro ? 'text-blue-500' : 'text-orange-500'}`}>
-                                            {isPro ? '正方' : '反方'}
-                                        </div>
-                                        <p className="text-muted-foreground line-clamp-2">
-                                            {node.key_points[0] || node.content.slice(0, 50)}...
-                                        </p>
-                                        <div className="flex gap-1 mt-2">
-                                            {node.is_rebutted && (
-                                                <Target className="w-3 h-3 text-red-500" />
-                                            )}
-                                            {node.support_count > 0 && (
-                                                <span className="text-[10px] text-green-500">
-                                                    +{node.support_count} 支持
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                )
-                            })}
-                        </div>
+                    <div key={round} className="grid sm:grid-cols-[4rem_1fr_1fr] gap-x-6 gap-y-2 py-3 border-b border-line text-sm">
+                        <span className="text-[0.8125rem] text-ink-3">第 {round} 轮</span>
+                        {(['pro', 'con'] as const).map(side => (
+                            <div key={side} className="space-y-1.5">
+                                {roundNodes.filter(n => n.author === side).map(node => (
+                                    <p key={node.id} className={`border-l-2 pl-3 line-clamp-2 ${side === 'pro' ? 'border-pro' : 'border-con'} ${node.is_rebutted ? 'text-ink-3' : 'text-ink-2'}`}>
+                                        {node.key_points[0] || node.content}
+                                        {node.is_rebutted && <span className="text-[0.75rem]">（已被反驳）</span>}
+                                    </p>
+                                ))}
+                            </div>
+                        ))}
                     </div>
                 ))}
-            </div>
-
-            {/* 关系统计 */}
-            <div className="mt-4 pt-4 border-t border-border/30">
-                <div className="flex gap-4 text-xs text-muted-foreground">
-                    <span>
-                        攻击关系：{edges.filter(e => e.relation === 'attacks').length}
-                    </span>
-                    <span>
-                        支持关系：{edges.filter(e => e.relation === 'builds_on').length}
-                    </span>
-                </div>
             </div>
         </div>
     )

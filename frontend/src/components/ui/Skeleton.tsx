@@ -114,18 +114,10 @@ export function SettingsSkeleton() {
  */
 export function PageSkeleton() {
     return (
-        <div className="min-h-screen gradient-bg p-8 space-y-8">
-            {/* Header */}
-            <div className="text-center space-y-4">
-                <Skeleton className="h-8 w-32 mx-auto rounded-full" />
-                <Skeleton className="h-10 w-64 mx-auto" />
-                <Skeleton className="h-5 w-96 mx-auto" />
-            </div>
-
-            {/* Content */}
-            <div className="max-w-3xl mx-auto">
-                <ChatSkeleton />
-            </div>
+        <div className="px-5 sm:px-10 py-10 max-w-5xl space-y-6" aria-busy="true" aria-label="加载中">
+            <Skeleton className="h-9 w-48" />
+            <Skeleton className="h-5 w-80 max-w-full" />
+            <Skeleton className="h-28 w-full" />
         </div>
     )
 }

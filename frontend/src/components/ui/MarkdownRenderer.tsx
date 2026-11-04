@@ -12,86 +12,34 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
             <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                    h1: ({ children }) => (
-                        <h1 className="text-2xl font-bold mt-4 mb-3 text-gray-900 dark:text-gray-100">
-                            {children}
-                        </h1>
-                    ),
-                    h2: ({ children }) => (
-                        <h2 className="text-xl font-bold mt-3 mb-2 text-gray-900 dark:text-gray-100">
-                            {children}
-                        </h2>
-                    ),
-                    h3: ({ children }) => (
-                        <h3 className="text-lg font-semibold mt-2 mb-1 text-gray-800 dark:text-gray-200">
-                            {children}
-                        </h3>
-                    ),
-                    p: ({ children }) => <p className="mb-3 leading-relaxed">{children}</p>,
-                    ul: ({ children }) => (
-                        <ul className="list-disc list-inside mb-3 space-y-1">{children}</ul>
-                    ),
-                    ol: ({ children }) => (
-                        <ol className="list-decimal list-inside mb-3 space-y-1">{children}</ol>
-                    ),
-                    li: ({ children }) => <li className="ml-2">{children}</li>,
+                    h1: ({ children }) => <h3 className="text-lg font-semibold mt-4 mb-2">{children}</h3>,
+                    h2: ({ children }) => <h3 className="text-base font-semibold mt-4 mb-2">{children}</h3>,
+                    h3: ({ children }) => <h4 className="text-[0.95rem] font-semibold mt-3 mb-1.5">{children}</h4>,
+                    p: ({ children }) => <p className="leading-[1.85]">{children}</p>,
+                    ul: ({ children }) => <ul className="list-disc pl-5 mb-3 space-y-1 marker:text-ink-3">{children}</ul>,
+                    ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 space-y-1 marker:text-ink-3">{children}</ol>,
+                    li: ({ children }) => <li className="pl-1">{children}</li>,
                     blockquote: ({ children }) => (
-                        <blockquote className="border-l-4 border-blue-400 pl-4 py-2 my-3 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-500 rounded-r">
-                            {children}
-                        </blockquote>
+                        <blockquote className="border-l-2 border-line-strong pl-4 my-3 text-ink-2">{children}</blockquote>
                     ),
-                    code: ({ children, className }) => {
-                        const isInline = !className
-                        if (isInline) {
-                            return (
-                                <code className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-sm font-mono text-pink-600 dark:text-pink-400">
-                                    {children}
-                                </code>
-                            )
-                        }
-                        return (
-                            <code className="block bg-gray-100 dark:bg-gray-800 p-3 rounded-lg overflow-x-auto text-sm font-mono">
-                                {children}
-                            </code>
-                        )
-                    },
-                    pre: ({ children }) => (
-                        <pre className="my-3 rounded-lg overflow-hidden">{children}</pre>
-                    ),
+                    code: ({ children, className: codeClass }) =>
+                        codeClass
+                            ? <code className="block bg-sunken p-3 rounded-md overflow-x-auto text-[0.8125rem] font-mono">{children}</code>
+                            : <code>{children}</code>,
+                    pre: ({ children }) => <pre className="my-3">{children}</pre>,
                     table: ({ children }) => (
                         <div className="overflow-x-auto my-3">
-                            <table className="min-w-full border-collapse border border-gray-200 dark:border-gray-700">
-                                {children}
-                            </table>
+                            <table className="min-w-full border-collapse text-sm">{children}</table>
                         </div>
                     ),
-                    th: ({ children }) => (
-                        <th className="border border-gray-200 dark:border-gray-700 px-4 py-2 bg-gray-100 dark:bg-gray-800 font-semibold text-left">
-                            {children}
-                        </th>
-                    ),
-                    td: ({ children }) => (
-                        <td className="border border-gray-200 dark:border-gray-700 px-4 py-2">
-                            {children}
-                        </td>
-                    ),
-                    strong: ({ children }) => (
-                        <strong className="font-bold text-gray-900 dark:text-gray-100">
-                            {children}
-                        </strong>
-                    ),
-                    em: ({ children }) => <em className="italic">{children}</em>,
+                    th: ({ children }) => <th className="border-b border-line-strong px-3 py-2 text-left font-semibold">{children}</th>,
+                    td: ({ children }) => <td className="border-b border-line px-3 py-2">{children}</td>,
                     a: ({ href, children }) => (
-                        <a
-                            href={href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 underline"
-                        >
+                        <a href={href} target="_blank" rel="noopener noreferrer" className="text-pro underline underline-offset-2">
                             {children}
                         </a>
                     ),
-                    hr: () => <hr className="my-4 border-gray-200 dark:border-gray-700" />,
+                    hr: () => <hr className="my-4 border-line" />,
                 }}
             >
                 {content}

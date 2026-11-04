@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Brain, Lightbulb, BookOpen, HelpCircle, Send, RefreshCw, ChevronRight, Sparkles, Square } from 'lucide-react'
+import { Square } from 'lucide-react'
+import { Page } from '@/components/layout/Page'
+import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer'
+import type { TopicHandoff } from '@/hooks/useInitialTopic'
 import { useStreamRun } from '@/hooks/useStreamRun'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { qaAPI } from '@/services/api'
@@ -21,10 +24,10 @@ interface QAMode {
     icon: string
 }
 
-const MODE_ICONS: Record<string, React.ReactNode> = {
-    socratic: <HelpCircle className="w-5 h-5" />,
-    structured: <BookOpen className="w-5 h-5" />,
-    hybrid: <Sparkles className="w-5 h-5" />
+const MODE_ANSWER_LABEL: Record<string, string> = {
+    socratic: '引导',
+    structured: '回答',
+    hybrid: '引导与回答',
 }
 
 export function SocraticQAView() {
@@ -33,7 +36,8 @@ export function SocraticQAView() {
     // 从历史记录恢复会话（SessionDetailModal 通过路由 state 传入），只在挂载时读取一次
     const [restored] = useState(() => (location.state as SocraticRestoreState | null)?.restore ?? null)
 
-    const [question, setQuestion] = useState('')
+    const [question, setQuestion] = useState(() => (location.state as TopicHandoff | null)?.topic ?? '')
+    const [pending, setPending] = useState<string | null>(null)
     const [modes, setModes] = useState<QAMode[]>([])
     const [selectedMode, setSelectedMode] = useState(restored?.mode ?? 'hybrid')
     const [response, setResponse] = useState(
@@ -61,8 +65,8 @@ export function SocraticQAView() {
 
     // 自动滚动
     useEffect(() => {
-        responseRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }, [response])
+        if (pending) responseRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    }, [response, pending])
 
     const askQuestion = () => {
         const asked = question.trim()
@@ -74,6 +78,8 @@ export function SocraticQAView() {
         setIsLoading(true)
         setResponse('')
         setError(null)
+        setPending(asked)
+        setQuestion('')
 
         let fullResponse = ''
         void run.start<SocraticQAStreamEvent>(
@@ -99,14 +105,17 @@ export function SocraticQAView() {
                 },
                 onFinish: (outcome, message) => {
                     setIsLoading(false)
+                    setPending(null)
                     if (outcome === 'completed' && fullResponse) {
                         setHistory(prev => [
                             ...prev,
                             { role: 'user', content: asked },
                             { role: 'assistant', content: fullResponse },
                         ])
-                    } else if (outcome === 'failed' || outcome === 'truncated') {
-                        setError(message || 'Unknown error')
+                    } else {
+                        // Nothing was saved to the thread: give the question back so it can be retried.
+                        setQuestion(asked)
+                        if (outcome === 'failed' || outcome === 'truncated') setError(message || 'Unknown error')
                     }
                 },
             },
@@ -129,214 +138,105 @@ export function SocraticQAView() {
         setSessionId(null)
     }
 
+    const turns = history.reduce<{ q: string; a: string }[]>((acc, item, i) => {
+        if (item.role === 'user') acc.push({ q: item.content, a: history[i + 1]?.role === 'assistant' ? history[i + 1].content : '' })
+        return acc
+    }, [])
+
     return (
-        <div className="min-h-screen gradient-bg">
-            <div className="container mx-auto px-4 sm:px-6 py-8 sm:py-16">
-                {/* 头部 */}
-                <div className="text-center mb-8 sm:mb-12">
-                    <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-primary/10 text-primary text-xs sm:text-sm font-medium mb-4 sm:mb-6 animate-scale-in">
-                        <Brain className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                        <span>苏格拉底问答</span>
-                    </div>
-
-                    <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-3 sm:mb-4 tracking-tight animate-slide-up delay-100 opacity-0">
-                        <span className="text-gradient">引导式</span>
-                        <br />
-                        <span className="text-foreground/80">深度学习</span>
-                    </h1>
-
-                    <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed animate-slide-up delay-200 opacity-0 px-4 sm:px-0">
-                        通过提问引导你思考，而不是直接给答案
-                    </p>
-                </div>
-
-                {/* 模式选择 */}
-                <div className="grid grid-cols-3 gap-4 mb-6 max-w-3xl mx-auto animate-fade-in delay-200 opacity-0">
-                    {modes.map(mode => (
+        <Page
+            width="reading"
+            title="问答"
+            description="可以让它只用提问引导你，也可以直接要答案，或者两样都要。"
+        >
+            <div role="radiogroup" aria-label="回答方式" className="grid grid-cols-3 border-y border-line divide-x divide-line mb-10">
+                {modes.map(mode => {
+                    const selected = selectedMode === mode.id
+                    return (
                         <button
                             key={mode.id}
+                            type="button"
+                            role="radio"
+                            aria-checked={selected}
                             onClick={() => setSelectedMode(mode.id)}
-                            className={`
-                                p-4 rounded-xl border transition-all text-left
-                                ${selectedMode === mode.id
-                                    ? 'bg-primary/10 border-primary ring-2 ring-primary/20'
-                                    : 'bg-card border-border hover:border-primary/50'
-                                }
-                            `}
+                            className={`relative text-left px-3 sm:px-4 py-3 ${selected ? 'bg-surface' : 'hover:bg-surface/60'}`}
                         >
-                            <div className="flex items-center gap-2 mb-2">
-                                <span className={selectedMode === mode.id ? 'text-primary' : 'text-muted-foreground'}>
-                                    {MODE_ICONS[mode.id] || <Lightbulb className="w-5 h-5" />}
-                                </span>
-                                <span className="font-medium text-sm">{mode.name}</span>
-                            </div>
-                            <p className="text-xs text-muted-foreground">{mode.description}</p>
+                            {selected && <span className="absolute inset-x-0 top-0 h-[2px] bg-ink" aria-hidden="true" />}
+                            <span className={`block text-[0.9375rem] ${selected ? 'text-ink font-medium' : 'text-ink-2'}`}>{mode.name}</span>
+                            <span className="hidden sm:block text-[0.8125rem] text-ink-3 mt-0.5 leading-snug">{mode.description}</span>
                         </button>
+                    )
+                })}
+            </div>
+
+            {(turns.length > 0 || pending) && (
+                <ol className="space-y-10 mb-10" aria-label="问答记录">
+                    {turns.map((turn, i) => (
+                        <li key={i}>
+                            <p className="font-serif text-[1.25rem] leading-snug font-semibold">{turn.q}</p>
+                            {turn.a && <div className="mt-4"><ResponseRenderer content={turn.a} /></div>}
+                        </li>
                     ))}
-                </div>
+                    {pending && (
+                        <li>
+                            <p className="font-serif text-[1.25rem] leading-snug font-semibold">{pending}</p>
+                            <div className="mt-4" aria-live="polite">
+                                {response
+                                    ? <ResponseRenderer content={response} />
+                                    : <p className="text-sm text-ink-3">{MODE_ANSWER_LABEL[selectedMode] ?? '回答'}正在生成…</p>}
+                            </div>
+                        </li>
+                    )}
+                </ol>
+            )}
 
-                {/* 输入区域 */}
-                <div className="card-modern p-6 mb-6 max-w-3xl mx-auto">
-                    <div className="relative">
-                        <textarea
-                            value={question}
-                            onChange={e => setQuestion(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder="输入你的问题，例如：什么是机器学习？为什么天空是蓝色的？"
-                            className="w-full px-4 py-3 pr-12 rounded-xl bg-muted/50 border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all resize-none"
-                            rows={3}
-                            disabled={isLoading}
-                        />
-                        <button
-                            onClick={isLoading ? cancelQuestion : askQuestion}
-                            disabled={!isLoading && !question.trim()}
-                            className="absolute right-3 bottom-3 p-2.5 rounded-lg btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                            title={isLoading ? '停止生成' : '发送'}
-                        >
-                            {isLoading ? (
-                                <Square className="w-5 h-5" />
-                            ) : (
-                                <Send className="w-5 h-5" />
+            {error && (
+                <div className="mb-6 border-l-2 border-destructive bg-surface px-4 py-3 text-sm" role="alert">{error}</div>
+            )}
+
+            <form onSubmit={(e) => { e.preventDefault(); if (isLoading) cancelQuestion(); else askQuestion() }}>
+                <label htmlFor="qa-question" className="block text-sm text-ink-3 mb-2">
+                    {turns.length ? '接着问' : '你的问题'}
+                </label>
+                <div className="field px-4 pt-3 pb-2">
+                    <textarea
+                        id="qa-question"
+                        value={question}
+                        onChange={e => setQuestion(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder={turns.length ? '可以回答它提的问题，或者问得更深一点' : '例如：为什么天空是蓝色的？'}
+                        className="w-full resize-none text-[1.0625rem] placeholder:text-ink-3 leading-relaxed"
+                        rows={3}
+                        disabled={isLoading}
+                    />
+                    <div className="flex items-center justify-between gap-3 pt-2">
+                        <span className="text-[0.8125rem] text-ink-3">Enter 发送，Shift+Enter 换行</span>
+                        <div className="flex items-center gap-2">
+                            {turns.length > 0 && !isLoading && (
+                                <button type="button" onClick={clearHistory} className="btn-line h-9">重新开始</button>
                             )}
-                        </button>
-                    </div>
-
-                    {history.length > 0 && (
-                        <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                            <span>已有 {history.length / 2} 轮对话</span>
-                            <button
-                                onClick={clearHistory}
-                                className="hover:text-foreground transition-colors"
-                            >
-                                清除历史
+                            <button type="submit" disabled={!isLoading && !question.trim()} className="btn-ink h-9">
+                                {isLoading ? <><Square className="h-3.5 w-3.5" fill="currentColor" />停止</> : '发送'}
                             </button>
                         </div>
-                    )}
+                    </div>
                 </div>
-
-                {/* 错误提示 */}
-                {error && (
-                    <div className="mb-6 p-4 rounded-xl bg-destructive/10 text-destructive text-sm">
-                        {error}
-                    </div>
-                )}
-
-                {/* 回复区域 */}
-                {response && (
-                    <div className="card-modern overflow-hidden max-w-3xl mx-auto">
-                        <div className="px-6 py-4 border-b bg-primary/5">
-                            <div className="flex items-center gap-2">
-                                {MODE_ICONS[selectedMode]}
-                                <span className="font-medium">
-                                    {selectedMode === 'socratic' ? '引导思考' :
-                                        selectedMode === 'structured' ? '结构化知识' :
-                                            '混合回答'}
-                                </span>
-                                {isLoading && (
-                                    <RefreshCw className="w-4 h-4 animate-spin ml-auto text-muted-foreground" />
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="p-6">
-                            <div className="prose prose-sm max-w-none dark:prose-invert">
-                                <ResponseRenderer content={response} />
-                            </div>
-                        </div>
-
-                        <div ref={responseRef} />
-                    </div>
-                )}
-
-                {/* 对话历史 */}
-                {history.length > 2 && (
-                    <details className="mt-6 p-4 rounded-xl bg-muted/30">
-                        <summary className="text-sm font-medium cursor-pointer">
-                            查看对话历史 ({history.length / 2} 轮)
-                        </summary>
-                        <div className="mt-4 space-y-4">
-                            {history.slice(0, -2).map((msg, idx) => (
-                                <div
-                                    key={idx}
-                                    className={`text-sm ${msg.role === 'user' ? 'text-muted-foreground' : ''}`}
-                                >
-                                    <span className="font-medium">
-                                        {msg.role === 'user' ? '你: ' : 'AI: '}
-                                    </span>
-                                    <span className="line-clamp-2">{msg.content}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </details>
-                )}
-
-                {/* 空状态 */}
-                {!response && !isLoading && (
-                    <div className="text-center py-12 text-muted-foreground">
-                        <Lightbulb className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                        <p>选择一个模式，然后提出你的问题</p>
-                        <p className="text-sm mt-2">
-                            💡 苏格拉底式：引导你自己思考答案<br />
-                            📋 结构化：给你系统的知识卡片<br />
-                            🔄 混合：两者结合
-                        </p>
-                    </div>
-                )}
-            </div>
-        </div>
+            </form>
+            <div ref={responseRef} />
+        </Page>
     )
 }
 
-// 回复内容渲染器
+/** Answers are markdown; a "---" line separates the guiding part from the answer in hybrid mode. */
 function ResponseRenderer({ content }: { content: string }) {
-    // 简单渲染，将 Markdown 风格转为 HTML
-    const formatContent = (text: string) => {
-        return text
-            .split('\n')
-            .map((line, idx) => {
-                // 处理标题
-                if (line.startsWith('###')) {
-                    return <h4 key={idx} className="font-bold mt-4 mb-2">{line.replace(/^###\s*/, '')}</h4>
-                }
-                if (line.startsWith('##')) {
-                    return <h3 key={idx} className="font-bold text-lg mt-4 mb-2">{line.replace(/^##\s*/, '')}</h3>
-                }
-                if (line.startsWith('#')) {
-                    return <h2 key={idx} className="font-bold text-xl mt-4 mb-2">{line.replace(/^#\s*/, '')}</h2>
-                }
-
-                // 处理引导问题（以数字或问号开头）
-                if (/^\d+[.)]/.test(line) || line.includes('？') || line.includes('?')) {
-                    return (
-                        <div key={idx} className="flex items-start gap-2 my-2 p-3 rounded-lg bg-primary/5 border-l-2 border-primary">
-                            <ChevronRight className="w-4 h-4 mt-0.5 text-primary flex-shrink-0" />
-                            <span>{line}</span>
-                        </div>
-                    )
-                }
-
-                // 处理列表
-                if (line.startsWith('- ') || line.startsWith('* ')) {
-                    return (
-                        <li key={idx} className="ml-4 my-1">
-                            {line.replace(/^[-*]\s*/, '')}
-                        </li>
-                    )
-                }
-
-                // 处理分隔线
-                if (line.trim() === '---') {
-                    return <hr key={idx} className="my-4 border-border" />
-                }
-
-                // 普通段落
-                if (line.trim()) {
-                    return <p key={idx} className="my-2">{line}</p>
-                }
-
-                return null
-            })
-    }
-
-    return <>{formatContent(content)}</>
+    const blocks = content.split(/\n-{3,}\n/)
+    return (
+        <div className="space-y-5">
+            {blocks.map((block, i) => (
+                <div key={i} className={i > 0 ? 'pt-5 border-t border-line' : ''}>
+                    <MarkdownRenderer content={block} />
+                </div>
+            ))}
+        </div>
+    )
 }
