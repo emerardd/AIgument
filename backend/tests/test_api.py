@@ -230,7 +230,7 @@ class TestStreamSessionLifecycle:
         assert '"type": "complete"' in body
         session = db_session.query(Session).filter(Session.session_type == "qa_socratic").first()
         assert session is not None
-        assert session.settings["status"] == "completed"
+        assert session.status == "completed"
 
 
 class TestRemovedLegacyEndpoints:

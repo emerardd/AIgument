@@ -51,9 +51,9 @@ async def get_dialectic_tree(
     session = db.get(Session, session_id)
     if session is None or session.session_type != "dialectic":
         raise HTTPException(status_code=404, detail="Session not found")
-    settings = session.settings or {}
+    result = session.result or {}
     return {
         "session_id": session_id,
-        "tree": settings.get("dialectic_tree"),
-        "trace": settings.get("dialectic_trace")
+        "tree": result.get("tree"),
+        "trace": result.get("trace"),
     }

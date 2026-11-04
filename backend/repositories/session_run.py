@@ -1,6 +1,5 @@
 """Database transactions shared by every streamed session run."""
 
-from datetime import datetime, timezone
 from typing import Iterable
 
 from sqlalchemy.orm import Session as DBSession
@@ -24,7 +23,7 @@ class SessionRunRepository:
     def start(self, session_type: str, topic: str, settings: dict) -> Session:
         session = Session(
             session_type=session_type, topic=topic[:500],
-            settings={**settings, "status": "running"},
+            settings=settings, status="running",
         )
         self.db.add(session)
         self.db.commit()
@@ -37,7 +36,8 @@ class SessionRunRepository:
             raise SessionNotFoundError(f"Session {session_id} not found")
         if session.session_type != session_type:
             raise SessionTypeMismatchError("Session type mismatch")
-        merge_session_settings(session, {**settings, "status": "running", "error": None})
+        merge_session_settings(session, settings)
+        mark_session_status(session, "running")
         self.db.commit()
         return session
 
@@ -59,17 +59,15 @@ class SessionRunRepository:
     def complete(
         self,
         session: Session,
-        updates: dict | None = None,
+        result: dict | None = None,
         messages: Iterable[tuple[str, str, dict | None]] = (),
     ) -> None:
-        """Commit final messages and completed status in one transaction."""
+        """Commit final messages, the mode's result and completed status in one transaction."""
         for role, content, meta in messages:
             self.db.add(self._message(session, role, content, meta))
-        merge_session_settings(session, {
-            **(updates or {}),
-            "status": "completed",
-            "completed_at": datetime.now(timezone.utc).isoformat(),
-        })
+        if result is not None:
+            session.result = result
+        mark_session_status(session, "completed")
         self.db.commit()
 
     def terminate(self, session: Session, status: str, error: str | None = None) -> None:

@@ -55,7 +55,7 @@ class DialecticRunService(SessionRunService[DialecticRequest, SessionRunReposito
 
     def finish(self, session, run: DialecticRun, event: dict) -> None:
         tree = event.get("tree") or run.tree
-        self.repository.complete(session, {
-            "dialectic_trace": run.orchestrator.build_trace(),
-            "dialectic_tree": tree,
+        self.repository.complete(session, result={
+            "trace": run.orchestrator.build_trace(),
+            "tree": tree,
         })

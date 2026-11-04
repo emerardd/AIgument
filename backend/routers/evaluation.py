@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session as DBSession
 
 from database import get_db
-from models.session import Session
+from models.debate_record import DebateRecord
 from schemas.evaluation import EvaluationRunRequest, EvaluationCompareRequest
 from services.evaluation import evaluate_trace, compare_traces
 
@@ -14,13 +14,11 @@ router = APIRouter(prefix="/api", tags=["evaluation"])
 
 
 def _load_trace_from_session(session_id: int, db: DBSession) -> dict:
-    session = db.query(Session).filter(Session.id == session_id).first()
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    trace = (session.settings or {}).get("trace")
-    if not trace:
+    record = db.query(DebateRecord).filter(DebateRecord.session_id == session_id).one_or_none()
+    if record is None or not record.trace:
         raise HTTPException(status_code=404, detail="Trace not found for session")
-    trace["trace_id"] = str(session.id)
+    trace = dict(record.trace)
+    trace["trace_id"] = str(session_id)
     return trace
 
 

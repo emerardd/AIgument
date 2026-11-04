@@ -130,7 +130,9 @@ async def get_session_detail(
             "type": session.session_type,
             "topic": session.topic,
             "mode": (session.settings or {}).get("mode"),
-            "status": (session.settings or {}).get("status"),
+            "status": session.status,
+            "error": session.error,
+            "completed_at": session.completed_at.isoformat() if session.completed_at else None,
             "messages": [
                 {
                     "id": msg.id,

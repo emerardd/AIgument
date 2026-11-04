@@ -16,7 +16,14 @@ class Session(Base):
     topic = Column(String(500))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    settings = Column(JSON)  # 存储会话设置
+    # 运行配置（provider、model、轮数、模式等），不放运行结果
+    settings = Column(JSON)
+    # 生命周期：running / completed / failed / cancelled / interrupted
+    status = Column(String(20), index=True, nullable=False, default="completed")
+    error = Column(Text, nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    # 模式专属的最终产物（如辩证法 trace 与进化树）；多 Agent 辩论结果在 DebateRecord
+    result = Column(JSON, nullable=True)
 
     messages = relationship("Message", back_populates="session", cascade="all, delete-orphan")
 
@@ -28,6 +35,10 @@ class Session(Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "settings": self.settings,
+            "status": self.status,
+            "error": self.error,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "result": self.result,
             "messages": [msg.to_dict() for msg in self.messages]
         }
 

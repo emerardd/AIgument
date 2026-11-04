@@ -5,10 +5,13 @@ from datetime import datetime, timezone
 from models.debate_record import DebateRecord
 from models.session import Session
 from repositories.session_run import SessionRunRepository
-from utils.session_state import merge_session_settings
+from utils.session_state import mark_session_status, merge_session_settings
 
 
 class DebateRepository(SessionRunRepository):
+    def get_record(self, session_id: int) -> DebateRecord | None:
+        return self.db.query(DebateRecord).filter(DebateRecord.session_id == session_id).one_or_none()
+
     def create(self, topic: str, settings: dict) -> Session:
         return self.start("debate", topic, {**settings, "mode": "multi-agent"})
 
@@ -25,14 +28,16 @@ class DebateRepository(SessionRunRepository):
         """Commit the final session state and analysis record atomically."""
         run_config = trace["run_config"]
         verdict = trace.get("verdict") or {}
+        completed_at = datetime.now(timezone.utc)
+        # Session keeps the run configuration; the full result lives in DebateRecord.
         merge_session_settings(session, {
             "rounds": total_rounds,
             "temperature": run_config.get("temperature"),
             "seed": run_config.get("seed"),
             "preset": run_config.get("preset"),
-            "final_state": final_state, "trace": trace, "status": "completed",
-            "completed_at": datetime.now(timezone.utc).isoformat(),
         })
+        mark_session_status(session, "completed")
+        session.completed_at = completed_at
         self.db.add(DebateRecord(
             session_id=session.id, topic=session.topic, total_rounds=total_rounds,
             winner=verdict.get("winner"),
@@ -46,6 +51,6 @@ class DebateRepository(SessionRunRepository):
             total_score_con=verdict.get("con_total_score", 0),
             margin=verdict.get("margin"), trace=trace, verdict=verdict,
             evaluations=trace.get("evaluations"), run_config=run_config,
-            completed_at=datetime.now(timezone.utc),
+            final_state=final_state, completed_at=completed_at,
         ))
         self.db.commit()

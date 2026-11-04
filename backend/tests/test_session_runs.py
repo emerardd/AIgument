@@ -68,12 +68,12 @@ def test_real_run_with_mock_provider_completes(client, db_session, session_type)
 
     session = db_session.query(Session).one()
     assert session.session_type == session_type
-    assert session.settings["status"] == "completed"
-    assert session.settings["completed_at"]
+    assert session.status == "completed"
+    assert session.completed_at
     assert db_session.query(Message).filter(Message.session_id == session.id).count() >= 2
     if session_type == "dialectic":
-        assert session.settings["dialectic_tree"]["nodes"]
-        assert session.settings["dialectic_trace"]["rounds"]
+        assert session.result["tree"]["nodes"]
+        assert session.result["trace"]["rounds"]
 
 
 @pytest.mark.parametrize("ending", ["exception", "error", "missing_complete"])
@@ -87,7 +87,7 @@ def test_failure_marks_failed_and_keeps_finished_messages(client, db_session, mo
     assert all(event["type"] != "complete" for event in events)
 
     session = db_session.query(Session).one()
-    assert session.settings["status"] == "failed"
+    assert session.status == "failed"
     # dialectic/dual chat persist the finished turn; QA keeps the question
     assert db_session.query(Message).count() == 1
 
@@ -109,7 +109,7 @@ def test_cancelled_run_is_recorded(db_session, monkeypatch, session_type, cancel
                 await anext(events)
 
     asyncio.run(run())
-    assert db_session.query(Session).one().settings["status"] == "cancelled"
+    assert db_session.query(Session).one().status == "cancelled"
 
 
 @pytest.mark.parametrize("session_type", MODES)
@@ -120,7 +120,7 @@ def test_complete_is_emitted_only_after_commit(db_session, monkeypatch, session_
     async def run():
         async for event in service_cls(SessionRunRepository(db_session)).run(request_cls(**params)):
             if event["type"] == "complete":
-                assert db_session.query(Session).one().settings["status"] == "completed"
+                assert db_session.query(Session).one().status == "completed"
                 return
         pytest.fail("no complete event")
 

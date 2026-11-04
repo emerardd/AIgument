@@ -77,7 +77,7 @@ def test_both_transports_persist_analysis(client, db_session, orchestrator, tran
         assert response.json()["arguments"][0]["content"] == "完整论点"
     assert response.status_code == 200
     session = db_session.query(Session).one()
-    assert session.settings["status"] == "completed"
+    assert session.status == "completed"
     record = db_session.query(DebateRecord).one()
     assert record.completed_at is not None
     assert record.pro_model == "pro-model"
@@ -92,7 +92,7 @@ def test_complete_is_visible_only_after_commit(db_session, orchestrator):
         service = DebateRunService(DebateRepository(db_session))
         async for event in service.run(request()):
             if event["type"] == "complete":
-                assert db_session.query(Session).one().settings["status"] == "completed"
+                assert db_session.query(Session).one().status == "completed"
                 assert db_session.query(DebateRecord).count() == 1
     asyncio.run(run())
 
@@ -109,7 +109,7 @@ def test_failure_preserves_completed_turns(client, db_session, orchestrator, fai
     else:
         response = client.post("/api/debate/agent", json=request().model_dump())
         assert response.status_code == 500
-    assert db_session.query(Session).one().settings["status"] == "failed"
+    assert db_session.query(Session).one().status == "failed"
     assert db_session.query(Message).count() == 1
     assert db_session.query(DebateRecord).count() == 0
 
@@ -128,7 +128,7 @@ def test_cancelled_run_is_recorded(db_session, orchestrator, cancel):
             with pytest.raises(asyncio.CancelledError):
                 await anext(events)
     asyncio.run(run())
-    assert db_session.query(Session).one().settings["status"] == "cancelled"
+    assert db_session.query(Session).one().status == "cancelled"
     assert db_session.query(Message).count() == 1
     assert db_session.query(DebateRecord).count() == 0
 
@@ -146,7 +146,7 @@ def test_final_commit_failure_does_not_emit_complete(client, db_session, orchest
     events = events_from_response(response)
     assert events[-1] == {"type": "error", "error": "disk full"}
     assert all(event["type"] != "complete" for event in events)
-    assert db_session.query(Session).one().settings["status"] == "failed"
+    assert db_session.query(Session).one().status == "failed"
     assert db_session.query(DebateRecord).count() == 0
     assert db_session.query(Message).count() == 1
 

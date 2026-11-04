@@ -41,6 +41,7 @@ class DebateRecord(Base):
     verdict = Column(JSON, nullable=True)        # 最终裁决
     evaluations = Column(JSON, nullable=True)    # 各轮评分
     run_config = Column(JSON, nullable=True)     # 运行配置
+    final_state = Column(JSON, nullable=True)    # 协调器最终状态（共享记忆快照）
 
     # 时间
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)

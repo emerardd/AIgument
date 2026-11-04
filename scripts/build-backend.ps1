@@ -26,6 +26,8 @@ $Arguments = @(
     "--workpath", $WorkDir,
     "--specpath", $WorkDir,
     "--add-data", "$BackendDir\.env.example;backend",
+    "--add-data", "$BackendDir\migrations;backend\migrations",
+    "--collect-submodules", "alembic",
     "$BackendDir\main.py"
 )
 

@@ -65,7 +65,7 @@ class DebateRunService(SessionRunService[DebateRequest, DebateRepository]):
                 elif event_type == "verdict":
                     result["verdict"] = event
         # Read the same committed state returned by history and analysis APIs.
-        session = self.repository.get(result["session_id"])
-        result["rounds"] = session.settings["rounds"]
-        result["full_state"] = session.settings["final_state"]
+        record = self.repository.get_record(result["session_id"])
+        result["rounds"] = record.total_rounds
+        result["full_state"] = record.final_state
         return result

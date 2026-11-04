@@ -1,5 +1,6 @@
 """Helpers for safely updating JSON session settings."""
 
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy.orm.attributes import flag_modified
@@ -14,8 +15,8 @@ def merge_session_settings(session: Any, updates: dict[str, Any]) -> None:
 
 
 def mark_session_status(session: Any, status: str, error: str | None = None) -> None:
-    """Record lifecycle status for long-running streamed sessions."""
-    updates: dict[str, Any] = {"status": status}
-    if error:
-        updates["error"] = error
-    merge_session_settings(session, updates)
+    """Record lifecycle status in the dedicated session columns."""
+    session.status = status
+    session.error = error
+    if status == "completed":
+        session.completed_at = datetime.now(timezone.utc)
