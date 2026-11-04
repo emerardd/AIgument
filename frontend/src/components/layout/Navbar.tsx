@@ -11,7 +11,7 @@ export function Navbar() {
 
     const navItems = [
         { path: '/dialectic-engine', label: '辩证法引擎', icon: GitBranch },
-        { path: '/agent-debate', label: 'Agent辩论', icon: Brain },
+        { path: '/debate', label: 'Agent辩论', icon: Brain },
         { path: '/dual-chat', label: '角色对话', icon: Users },
         { path: '/socratic-qa', label: '思考问答', icon: Lightbulb },
         { path: '/history', label: '历史', icon: History },

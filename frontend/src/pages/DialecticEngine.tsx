@@ -65,7 +65,6 @@ export default function DialecticEngine() {
             rounds,
             provider: defaultProvider,
             model: defaultModel,
-            stream: true,
         }
 
         dialecticAPI.streamDialectic(

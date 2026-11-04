@@ -9,6 +9,9 @@ type HistoryFilter = SessionType | 'all'
 interface SessionDetail {
     session_id: number
     type: 'debate' | 'dialectic' | 'chat' | 'qa' | 'dual_chat' | 'qa_socratic'
+    topic?: string
+    mode?: string | null
+    status?: string | null
     messages: Array<{
         role: string
         content: string

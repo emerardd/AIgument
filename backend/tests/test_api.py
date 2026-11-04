@@ -216,36 +216,34 @@ class TestStreamSessionLifecycle:
         )
         assert response.status_code == 422
 
-    def test_stream_chat_marks_session_completed(self, client, db_session):
+    def test_socratic_stream_marks_session_completed(self, client, db_session):
         from models.session import Session
 
         with client.stream(
             "GET",
-            "/api/chat/stream",
-            params={"message": "你好", "provider": "mock", "model": "mock"},
+            "/api/qa/socratic-stream",
+            params={"question": "什么是熵", "mode": "structured", "provider": "mock", "model": "mock"},
         ) as response:
             assert response.status_code == 200
             body = "".join(response.iter_text())
 
         assert '"type": "complete"' in body
-        session = db_session.query(Session).filter(Session.session_type == "chat").first()
+        session = db_session.query(Session).filter(Session.session_type == "qa_socratic").first()
         assert session is not None
         assert session.settings["status"] == "completed"
 
 
-# 注意：以下测试需要 AI API Key，CI 中可能跳过
-class TestDebateAPI:
-    """测试辩论 API（需要 mock 或真实 API Key）"""
-    
-    @pytest.mark.skip(reason="需要真实 API Key")
-    def test_debate_stream(self, client):
-        """测试流式辩论"""
-        response = client.get(
-            "/api/debate/stream",
-            params={
-                "topic": "测试辩题",
-                "rounds": 1,
-                "provider": "deepseek"
-            }
-        )
-        assert response.status_code == 200
+class TestRemovedLegacyEndpoints:
+    """传统辩论、普通对话和普通问答已合并进其他模式"""
+
+    @pytest.mark.parametrize("method,path", [
+        ("get", "/api/debate/stream"),
+        ("post", "/api/debate"),
+        ("get", "/api/chat/stream"),
+        ("post", "/api/chat"),
+        ("get", "/api/qa/stream"),
+        ("post", "/api/qa"),
+    ])
+    def test_legacy_endpoint_is_gone(self, client, method, path):
+        response = getattr(client, method)(path)
+        assert response.status_code in (404, 405)

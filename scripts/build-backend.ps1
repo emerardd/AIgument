@@ -25,7 +25,6 @@ $Arguments = @(
     "--distpath", $DistDir,
     "--workpath", $WorkDir,
     "--specpath", $WorkDir,
-    "--add-data", "$BackendDir\prompts.yaml;backend",
     "--add-data", "$BackendDir\.env.example;backend",
     "$BackendDir\main.py"
 )

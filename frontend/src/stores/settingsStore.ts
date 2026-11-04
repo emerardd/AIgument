@@ -10,11 +10,9 @@ interface SettingsState {
     darkMode: boolean
     defaultProvider: Provider
     defaultModel: string
-    streamMode: boolean
     toggleDarkMode: () => void
     setDefaultProvider: (provider: Provider) => void
     setDefaultModel: (model: string) => void
-    setStreamMode: (enabled: boolean) => void
     initTheme: () => void
 }
 
@@ -24,7 +22,6 @@ export const useSettingsStore = create<SettingsState>()(
             darkMode: false,
             defaultProvider: DEFAULT_PROVIDER,
             defaultModel: modelPresets[DEFAULT_PROVIDER][0],
-            streamMode: true,
 
             toggleDarkMode: () =>
                 set((state) => {
@@ -43,7 +40,6 @@ export const useSettingsStore = create<SettingsState>()(
                 defaultModel: modelPresets[provider][0],
             }),
             setDefaultModel: (model) => set({ defaultModel: model }),
-            setStreamMode: (enabled) => set({ streamMode: enabled }),
 
             // 初始化主题 - 在应用启动时调用，同步 DOM 和 store 状态
             initTheme: () => {

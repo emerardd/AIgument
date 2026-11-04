@@ -1,8 +1,17 @@
 import { useState, useEffect, useRef } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Brain, Lightbulb, BookOpen, HelpCircle, Send, RefreshCw, ChevronRight, Sparkles, Square } from 'lucide-react'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { qaAPI } from '@/services/api'
 import type { ChatHistoryItem, SocraticQAStreamEvent } from '@/services/api'
+
+export interface SocraticRestoreState {
+    restore: {
+        sessionId: number
+        mode?: string
+        history: ChatHistoryItem[]
+    }
+}
 
 interface QAMode {
     id: string
@@ -29,6 +38,20 @@ export function SocraticQAView() {
     const responseRef = useRef<HTMLDivElement>(null)
     const abortRef = useRef<AbortController | null>(null)
     const { defaultProvider, defaultModel } = useSettingsStore()
+    const location = useLocation()
+    const navigate = useNavigate()
+
+    // 从历史记录恢复会话（SessionDetailModal 通过路由 state 传入）
+    useEffect(() => {
+        const restore = (location.state as SocraticRestoreState | null)?.restore
+        if (!restore) return
+        setSessionId(restore.sessionId)
+        setHistory(restore.history)
+        if (restore.mode) setSelectedMode(restore.mode)
+        const lastAnswer = [...restore.history].reverse().find(item => item.role === 'assistant')
+        setResponse(lastAnswer?.content ?? '')
+        navigate(location.pathname, { replace: true, state: null })
+    }, [location.state, location.pathname, navigate])
 
     // 获取可用模式
     useEffect(() => {

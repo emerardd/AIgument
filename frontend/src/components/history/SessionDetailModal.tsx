@@ -3,16 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer'
 import { useHistoryStore } from '@/stores/historyStore'
-import { useChatStore } from '@/stores/chatStore'
-import { useQAStore } from '@/stores/qaStore'
+import type { SocraticRestoreState } from '@/components/qa/SocraticQAView'
 import { useToast } from '@/hooks/useToast'
 import { downloadSessionExport } from '@/utils/download'
 import { X, Loader2, Download, Calendar, MessageCircle } from 'lucide-react'
-
-type RestorableMessage = {
-    role: 'user' | 'assistant'
-    content: string
-}
 
 interface SessionDetailModalProps {
     sessionId: number
@@ -22,8 +16,6 @@ interface SessionDetailModalProps {
 
 export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetailModalProps) {
     const { selectedSession, isDetailLoading, fetchSessionDetail, clearSelectedSession } = useHistoryStore()
-    const { restoreSession: restoreChatSession } = useChatStore()
-    const { restoreSession: restoreQASession } = useQAStore()
     const toast = useToast()
     const navigate = useNavigate()
 
@@ -93,31 +85,23 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
         return date.toLocaleString('zh-CN')
     }
 
+    const canContinue = selectedSession?.type === 'qa_socratic'
+
     const handleContinueChat = () => {
-        if (!selectedSession) return
+        if (!selectedSession || !canContinue) return
 
-        const sessionType = selectedSession.type
-        const messages = selectedSession.messages
-
-        if (sessionType === 'chat' || sessionType === 'qa') {
-            const restorableMessages: RestorableMessage[] = messages
-                .filter(msg => msg.role === 'user' || msg.role === 'assistant')
-                .map(msg => ({
-                    role: msg.role as 'user' | 'assistant',
-                    content: msg.content
-                }))
-
-            if (sessionType === 'chat') {
-                restoreChatSession(restorableMessages, selectedSession.session_id)
-            } else {
-                restoreQASession(restorableMessages, selectedSession.session_id)
-            }
-            onClose()
-            navigate(sessionType === 'chat' ? '/chat' : '/qa')
-            toast.success('已恢复会话，可以继续对话')
-        } else {
-            toast.info('当前模式暂不支持继续对话')
+        const state: SocraticRestoreState = {
+            restore: {
+                sessionId: selectedSession.session_id,
+                mode: selectedSession.mode ?? undefined,
+                history: selectedSession.messages
+                    .filter(msg => msg.role === 'user' || msg.role === 'assistant')
+                    .map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content })),
+            },
         }
+        onClose()
+        navigate('/socratic-qa', { state })
+        toast.success('已恢复会话，可以继续追问')
     }
 
     return (
@@ -133,7 +117,7 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
                 <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
                     <h2 className="text-xl font-bold">会话详情</h2>
                     <div className="flex items-center gap-2">
-                        {selectedSession && (selectedSession.type === 'chat' || selectedSession.type === 'qa') && (
+                        {canContinue && (
                             <Button
                                 variant="default"
                                 size="sm"
@@ -141,7 +125,7 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
                                 className="btn-primary gap-1"
                             >
                                 <MessageCircle className="h-4 w-4" />
-                                继续对话
+                                继续追问
                             </Button>
                         )}
                         <Button variant="outline" size="sm" onClick={() => handleExport('md')}>

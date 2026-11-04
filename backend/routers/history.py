@@ -129,6 +129,8 @@ async def get_session_detail(
             "session_id": session.id,
             "type": session.session_type,
             "topic": session.topic,
+            "mode": (session.settings or {}).get("mode"),
+            "status": (session.settings or {}).get("status"),
             "messages": [
                 {
                     "id": msg.id,

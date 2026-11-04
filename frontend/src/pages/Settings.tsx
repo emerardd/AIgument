@@ -20,7 +20,6 @@ import {
     Sun,
     Wifi,
     WifiOff,
-    Zap,
 } from 'lucide-react'
 
 const providerFallbacks: ProviderInfo[] = (Object.keys(modelPresets) as Provider[]).map((provider) => ({
@@ -45,11 +44,9 @@ export default function SettingsPage() {
         darkMode,
         defaultProvider,
         defaultModel,
-        streamMode,
         toggleDarkMode,
         setDefaultProvider,
         setDefaultModel,
-        setStreamMode,
     } = useSettingsStore()
     const toast = useToast()
 
@@ -141,7 +138,7 @@ export default function SettingsPage() {
                         连接状态、默认模型与运行偏好
                     </h1>
                     <p className="text-muted-foreground max-w-2xl">
-                        管理本机 API Key，测试模型是否可用，并设置基础对话与问答的输出方式。
+                        管理本机 API Key，测试模型是否可用，并设置界面偏好。
                     </p>
                 </div>
 
@@ -367,46 +364,11 @@ export default function SettingsPage() {
                             </CardContent>
                         </Card>
 
-                        <Card className="glass shadow-soft border-0">
-                            <CardContent className="p-5 sm:p-6">
-                                <div className="flex items-center justify-between gap-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center">
-                                            <Zap className="w-5 h-5 text-primary" />
-                                        </div>
-                                        <div>
-                                            <h2 className="font-semibold">基础对话/问答输出</h2>
-                                            <p className="text-sm text-muted-foreground">
-                                                {streamMode ? '实时显示普通对话和传统问答' : '等待完整回复后显示'}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground mt-1">
-                                                Agent 辩论、角色对话和辩证法引擎始终使用事件流。
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => setStreamMode(!streamMode)}
-                                        className={`relative w-14 h-8 rounded-full transition-colors shrink-0 ${
-                                            streamMode ? 'bg-primary' : 'bg-muted'
-                                        }`}
-                                        title="切换基础对话和问答输出方式"
-                                    >
-                                        <span
-                                            className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-soft transition-all ${
-                                                streamMode ? 'left-7' : 'left-1'
-                                            }`}
-                                        />
-                                    </button>
-                                </div>
-                            </CardContent>
-                        </Card>
-
                         <Card className="bg-muted/30 border-0">
                             <CardContent className="p-4 text-sm text-muted-foreground">
                                 当前配置：
                                 <span className="font-medium text-foreground"> {defaultProvider}</span> /
-                                <span className="font-medium text-foreground"> {defaultModel}</span> /
-                                <span className="font-medium text-foreground"> {streamMode ? '流式' : '非流式'}</span>
+                                <span className="font-medium text-foreground"> {defaultModel}</span>
                             </CardContent>
                         </Card>
                     </div>

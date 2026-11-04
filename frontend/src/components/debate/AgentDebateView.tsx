@@ -95,7 +95,6 @@ export function AgentDebateView() {
             rounds,
             provider: defaultProvider,
             model: defaultModel,
-            stream: true,
             ...(mixedMode ? {
                 pro_provider: proProvider,
                 pro_model: proModel,

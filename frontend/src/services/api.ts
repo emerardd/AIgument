@@ -3,10 +3,8 @@ import type {
     AgentStreamEvent,
     DialecticStreamEvent,
     DebateSettings,
-    DebateSession,
     HistoryItem,
     SessionType,
-    StreamEvent,
 } from '@/types'
 import { API_BASE_URL, buildApiUrl } from '@/config/env'
 import { streamSSE } from '@/utils/sse'
@@ -131,27 +129,6 @@ export interface SocraticQAStreamEvent {
 // ====== 辩论 API ======
 
 export const debateAPI = {
-    streamDebate: async (
-        settings: DebateSettings,
-        onEvent: (event: StreamEvent) => void,
-        onError: (error: Error) => void,
-        signal?: AbortSignal
-    ) => {
-        await streamWithParams<StreamEvent>(
-            '/api/debate/stream',
-            buildStreamParams(settings),
-            onEvent,
-            onError,
-            signal
-        )
-    },
-
-    createDebate: (settings: DebateSettings) =>
-        api.post<DebateSession>('/api/debate', settings),
-
-    singleRound: (data: { topic: string; round: number }) =>
-        api.post('/api/debate/single', data),
-
     streamAgentDebate: async (
         settings: DebateSettings,
         onEvent: (event: AgentStreamEvent) => void,
@@ -190,46 +167,6 @@ export const dialecticAPI = {
 // ====== 对话 API ======
 
 export const chatAPI = {
-    sendMessage: (
-        message: string,
-        provider?: string,
-        model?: string,
-        sessionId?: number,
-        history?: ChatHistoryItem[]
-    ) =>
-        api.post<{ session_id: number; message?: { role: string; content: string }; content?: string }>('/api/chat', {
-            message,
-            provider,
-            model,
-            session_id: sessionId,
-            history: history || [],
-        }),
-
-    streamChat: async (
-        message: string,
-        onEvent: (event: { type: string; content?: string; role?: string; session_id?: number }) => void,
-        onError: (error: Error) => void,
-        provider?: string,
-        model?: string,
-        history?: ChatHistoryItem[],
-        sessionId?: number,
-        signal?: AbortSignal
-    ) => {
-        const params = new URLSearchParams({ message })
-        if (provider) params.set('provider', provider)
-        if (model) params.set('model', model)
-        if (history && history.length > 0) params.set('history', JSON.stringify(history))
-        if (sessionId) params.set('session_id', String(sessionId))
-
-        await streamWithParams<{ type: string; content?: string; role?: string; session_id?: number }>(
-            '/api/chat/stream',
-            params,
-            onEvent,
-            onError,
-            signal
-        )
-    },
-
     getRoles: () => api.get<{ roles: DualChatRole[] }>('/api/chat/roles'),
 
     streamDualChat: async (
@@ -259,50 +196,6 @@ export const chatAPI = {
 // ====== 问答 API ======
 
 export const qaAPI = {
-    askQuestion: (
-        question: string,
-        style?: string,
-        provider?: string,
-        model?: string,
-        sessionId?: number,
-        history?: ChatHistoryItem[]
-    ) =>
-        api.post<{ session_id: number; answer: string; style: string }>('/api/qa', {
-            question,
-            style,
-            provider,
-            model,
-            session_id: sessionId,
-            history: history || [],
-        }),
-
-    streamQA: async (
-        question: string,
-        onEvent: (event: { type: string; content?: string; role?: string; session_id?: number }) => void,
-        onError: (error: Error) => void,
-        style?: string,
-        provider?: string,
-        model?: string,
-        history?: ChatHistoryItem[],
-        sessionId?: number,
-        signal?: AbortSignal
-    ) => {
-        const params = new URLSearchParams({ question })
-        if (style) params.set('style', style)
-        if (provider) params.set('provider', provider)
-        if (model) params.set('model', model)
-        if (history && history.length > 0) params.set('history', JSON.stringify(history))
-        if (sessionId) params.set('session_id', String(sessionId))
-
-        await streamWithParams<{ type: string; content?: string; role?: string; session_id?: number }>(
-            '/api/qa/stream',
-            params,
-            onEvent,
-            onError,
-            signal
-        )
-    },
-
     getModes: () => api.get<{ modes: QAMode[] }>('/api/qa/modes'),
 
     streamSocraticQA: async (
@@ -353,6 +246,8 @@ export const historyAPI = {
         session_id: number
         type: SessionType
         topic?: string
+        mode?: string | null
+        status?: string | null
         messages: Array<{
             role: string
             content: string

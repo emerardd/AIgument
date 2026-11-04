@@ -21,8 +21,8 @@ function assertMatches(fileName, content, pattern, label) {
 
 const api = read('src/services/api.ts')
 const settingsPage = read('src/pages/Settings.tsx')
-const chatView = read('src/components/chat/ChatView.tsx')
-const qaView = read('src/components/qa/QAView.tsx')
+const app = read('src/App.tsx')
+const detailModal = read('src/components/history/SessionDetailModal.tsx')
 
 assertIncludes('src/services/api.ts', api, 'getProviders')
 assertIncludes('src/services/api.ts', api, 'saveProviderKey')
@@ -32,20 +32,20 @@ assertIncludes('src/services/api.ts', api, '/api/settings/providers')
 assertIncludes('src/pages/Settings.tsx', settingsPage, 'settingsAPI.getProviders')
 assertIncludes('src/pages/Settings.tsx', settingsPage, 'settingsAPI.saveProviderKey')
 assertIncludes('src/pages/Settings.tsx', settingsPage, 'settingsAPI.testProvider')
-assertIncludes('src/pages/Settings.tsx', settingsPage, '基础对话/问答输出')
-assertIncludes('src/pages/Settings.tsx', settingsPage, 'Agent 辩论、角色对话和辩证法引擎始终使用事件流')
 
+for (const legacy of ['/api/debate/stream', '/api/debate/single', '/api/chat/stream', '/api/qa/stream']) {
+  if (api.includes(legacy)) {
+    throw new Error(`src/services/api.ts still references removed endpoint: ${legacy}`)
+  }
+}
+assertIncludes('src/App.tsx', app, '<Route path="/debate"')
+assertMatches('src/App.tsx', app, /path="\/chat"[^>]*Navigate/, 'legacy /chat redirects')
+assertMatches('src/App.tsx', app, /path="\/qa"[^>]*Navigate/, 'legacy /qa redirects')
 assertMatches(
-  'src/components/chat/ChatView.tsx',
-  chatView,
-  /if\s*\(\s*streamMode\s*\)[\s\S]*chatAPI\.streamChat[\s\S]*else[\s\S]*chatAPI\.sendMessage/,
-  'chat streamMode branches'
-)
-assertMatches(
-  'src/components/qa/QAView.tsx',
-  qaView,
-  /if\s*\(\s*streamMode\s*\)[\s\S]*qaAPI\.streamQA[\s\S]*else[\s\S]*qaAPI\.askQuestion/,
-  'qa streamMode branches'
+  'src/components/history/SessionDetailModal.tsx',
+  detailModal,
+  /navigate\('\/socratic-qa',\s*\{\s*state\s*\}\)/,
+  'history restores socratic sessions'
 )
 
 console.log('Frontend interaction contracts passed.')
