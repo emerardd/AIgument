@@ -39,7 +39,7 @@ export default function Home() {
     }
 
     return (
-        <div className="px-5 sm:px-10 pt-12 sm:pt-24 pb-20 max-w-4xl">
+        <div className="mx-auto w-full max-w-[960px] px-[clamp(16px,4vw,56px)] pt-12 sm:pt-24 pb-24">
             <h1 className="display text-[2.75rem] sm:text-[4rem]">今天辩什么？</h1>
 
             <form

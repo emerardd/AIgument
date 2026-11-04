@@ -30,7 +30,8 @@ export default function DebatePage() {
 
     return (
         <Page
-            title={MODES[mode].label}
+            width="full"
+            title="辩论"
             description={MODES[mode].description}
             aside={
                 <div role="tablist" aria-label="辩论方式" className="segmented">

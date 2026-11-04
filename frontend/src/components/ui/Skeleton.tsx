@@ -114,7 +114,7 @@ export function SettingsSkeleton() {
  */
 export function PageSkeleton() {
     return (
-        <div className="px-5 sm:px-10 py-10 max-w-5xl space-y-6" aria-busy="true" aria-label="加载中">
+        <div className="mx-auto w-full max-w-[1200px] px-[clamp(16px,4vw,56px)] py-12 space-y-6" aria-busy="true" aria-label="加载中">
             <Skeleton className="h-9 w-48" />
             <Skeleton className="h-5 w-80 max-w-full" />
             <Skeleton className="h-28 w-full" />

@@ -4,60 +4,74 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * 对弈 — two sides on one board.
- * Board: cool celadon paper. Ink: green-black. 正方 indigo, 反方 cinnabar,
- * bronze only for the jury. Everything else is ink at lower strengths.
+ * AIgument design language: 回合 (turns).
+ * Every mode is people taking turns. Color only ever says who is speaking:
+ *   voice A  ultramarine  (正方 / 正题 / 角色 A / AI in QA)
+ *   voice B  teal         (反方 / 反题 / 角色 B)
+ *   judge    gold         (评审、裁决、评分) — nothing else may use it
+ * Neutrals carry everything else. Surfaces step up in three levels.
+ * (Utility names keep `pro` / `con` for voice A / voice B.)
  */
 :root {
-  --board: #edf0ea;
-  --surface: #f7f8f5;
-  --sunken: #e3e8e1;
-  --ink: #18201d;
-  --ink-2: #4a5450;
-  --ink-3: #737d79;
-  --line: #d2d8d0;
-  --line-strong: #a9b3ac;
-  --pro: #2b4c8c;
-  --pro-soft: #dfe5f0;
-  --con: #b13c2a;
-  --con-soft: #f1ddd7;
-  --jury: #7f6119;
-  --jury-soft: #ece3cc;
-  --danger: #a3271b;
-  --focus: #2b4c8c;
+  --page: #f4f5f7;
+  --surface: #ffffff;
+  --raised: #ffffff;
+  --sunken: #eaedf1;
+  --ink: #15181e;
+  --ink-2: #474c56;
+  --ink-3: #6b717c;
+  --line: #e1e4e9;
+  --line-strong: #c6cbd3;
+
+  --voice-a: #2f56c9;
+  --voice-a-soft: #e8edfb;
+  --voice-b: #00897a;
+  --voice-b-soft: #dcf1ee;
+  --judge: #b07614;
+  --judge-soft: #f7edd9;
+  --danger: #b3261e;
+  --focus: #2f56c9;
+
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.07);
+  --shadow-float: 0 12px 32px -8px rgb(16 24 40 / 0.18), 0 2px 6px rgb(16 24 40 / 0.06);
   color-scheme: light;
 }
 
 .dark {
-  --board: #121614;
-  --surface: #1a1f1c;
-  --sunken: #0d100e;
-  --ink: #e6eae4;
-  --ink-2: #b0b9b3;
-  --ink-3: #848e89;
-  --line: #2b322e;
-  --line-strong: #46504a;
-  --pro: #8ea7e6;
-  --pro-soft: #1e2840;
-  --con: #e8836f;
-  --con-soft: #3a211b;
-  --jury: #d4b15e;
-  --jury-soft: #332a14;
-  --danger: #f08a7c;
-  --focus: #8ea7e6;
+  --page: #121418;
+  --surface: #1b1e24;
+  --raised: #22262e;
+  --sunken: #0e1013;
+  --ink: #eceef1;
+  --ink-2: #b3b8c2;
+  --ink-3: #8b919c;
+  --line: #2b3039;
+  --line-strong: #3e4552;
+
+  --voice-a: #6a8aee;
+  --voice-a-soft: #1f2a4a;
+  --voice-b: #1fa892;
+  --voice-b-soft: #11362f;
+  --judge: #bb8a30;
+  --judge-soft: #36290f;
+  --danger: #f2877c;
+  --focus: #6a8aee;
+
+  --shadow-card: 0 0 0 1px var(--line);
+  --shadow-float: 0 16px 40px -8px rgb(0 0 0 / 0.6), 0 0 0 1px var(--line);
   color-scheme: dark;
 }
 
 @theme {
-  /* shadcn-style names the components already use, mapped onto the board palette */
-  --color-background: var(--board);
+  /* shadcn-style names still used by shared components */
+  --color-background: var(--page);
   --color-foreground: var(--ink);
   --color-card: var(--surface);
   --color-card-foreground: var(--ink);
-  --color-popover: var(--surface);
+  --color-popover: var(--raised);
   --color-popover-foreground: var(--ink);
   --color-primary: var(--ink);
-  --color-primary-foreground: var(--board);
+  --color-primary-foreground: var(--surface);
   --color-secondary: var(--sunken);
   --color-secondary-foreground: var(--ink);
   --color-muted: var(--sunken);
@@ -65,39 +79,38 @@
   --color-accent: var(--sunken);
   --color-accent-foreground: var(--ink);
   --color-destructive: var(--danger);
-  --color-destructive-foreground: var(--board);
+  --color-destructive-foreground: var(--surface);
   --color-border: var(--line);
   --color-input: var(--line-strong);
   --color-ring: var(--focus);
 
-  /* board vocabulary */
-  --color-board: var(--board);
+  --color-board: var(--page);
+  --color-page: var(--page);
   --color-surface: var(--surface);
+  --color-raised: var(--raised);
   --color-sunken: var(--sunken);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
-  --color-pro: var(--pro);
-  --color-pro-soft: var(--pro-soft);
-  --color-con: var(--con);
-  --color-con-soft: var(--con-soft);
-  --color-jury: var(--jury);
-  --color-jury-soft: var(--jury-soft);
+  --color-pro: var(--voice-a);
+  --color-pro-soft: var(--voice-a-soft);
+  --color-con: var(--voice-b);
+  --color-con-soft: var(--voice-b-soft);
+  --color-jury: var(--judge);
+  --color-jury-soft: var(--judge-soft);
 
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
 
   --font-sans: "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
-  --font-serif: "Noto Serif SC", "Songti SC", "STSong", serif;
+  --font-serif: "Fraunces Variable", "Noto Serif SC", "Songti SC", "STSong", serif;
 }
 
 @layer base {
-  * {
-    border-color: var(--line);
-  }
+  * { border-color: var(--line); }
 
   html {
     -webkit-font-smoothing: antialiased;
@@ -105,78 +118,81 @@
   }
 
   body {
-    background: var(--board);
+    background: var(--page);
     color: var(--ink);
     font-family: var(--font-sans);
-    font-size: 15px;
+    font-size: 16px;
     line-height: 1.7;
   }
 
   h1, h2, h3, h4 {
     font-family: var(--font-serif);
     color: var(--ink);
-    letter-spacing: 0.01em;
     line-height: 1.3;
     font-weight: 600;
   }
 
-  ::selection {
-    background: var(--pro-soft);
-    color: var(--ink);
-  }
+  ::selection { background: var(--voice-a-soft); color: var(--ink); }
 
   :focus-visible {
     outline: 2px solid var(--focus);
     outline-offset: 2px;
   }
 
-  input, textarea, select, button {
-    font: inherit;
-    color: inherit;
-  }
+  input, textarea, select, button { font: inherit; color: inherit; }
 }
 
-/* ---- Type ---------------------------------------------------------------- */
+/* ---- Type scale: 13 / 14 / 16 / 20 / 28 / 40 / 64 ------------------------ */
+
+.t-meta { font-size: 0.8125rem; line-height: 1.5; color: var(--ink-3); }
+.t-small { font-size: 0.875rem; line-height: 1.6; }
 
 .display {
   font-family: var(--font-serif);
-  font-weight: 900;
-  letter-spacing: 0.02em;
+  font-weight: 800;
+  font-variation-settings: "opsz" 144;
+  letter-spacing: 0.005em;
   line-height: 1.15;
 }
 
 .numeral {
   font-family: var(--font-serif);
-  font-weight: 900;
-  font-variant-numeric: tabular-nums lining-nums;
+  font-weight: 700;
+  font-variation-settings: "opsz" 144;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: -0.01em;
 }
 
-/* ---- Surfaces -------------------------------------------------------------- */
+/* ---- Surfaces: page < surface (card) < raised (popover, dialog) --------- */
 
 .panel {
   background: var(--surface);
-  border: 1px solid var(--line);
   border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.float {
+  background: var(--raised);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-float);
 }
 
 .field {
   background: var(--surface);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
-  transition: border-color 120ms ease;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
 .field:focus-within {
-  border-color: var(--ink);
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px var(--voice-a-soft);
 }
 
-.field input,
-.field textarea {
-  background: transparent;
-  outline: none;
-}
+.field input, .field textarea { background: transparent; outline: none; }
 
-/* Segmented control: one row of mutually exclusive options. */
+/* ---- Controls --------------------------------------------------------------- */
+
 .segmented {
   display: inline-flex;
   padding: 3px;
@@ -186,116 +202,109 @@
 }
 
 .segmented > button {
-  padding: 0.3rem 0.8rem;
+  padding: 0.3rem 0.85rem;
   border-radius: var(--radius-sm);
   font-size: 0.875rem;
   color: var(--ink-2);
   transition: background-color 120ms ease, color 120ms ease;
 }
 
-.segmented > button:hover {
-  color: var(--ink);
-}
+.segmented > button:hover { color: var(--ink); }
 
 .segmented > button[aria-pressed="true"],
 .segmented > button[aria-selected="true"] {
   background: var(--surface);
   color: var(--ink);
-  box-shadow: 0 0 0 1px var(--line);
+  box-shadow: var(--shadow-card);
 }
 
-/* Toggle chip for on/off display options. */
 .chip {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.25rem 0.65rem;
-  font-size: 0.8125rem;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
   border-radius: 999px;
-  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
   color: var(--ink-2);
-  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+  transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
 }
 
-.chip:hover {
-  color: var(--ink);
-  border-color: var(--ink-3);
-}
+.chip:hover { color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink-3); }
 
 .chip[aria-pressed="true"] {
   background: var(--ink);
-  border-color: var(--ink);
-  color: var(--board);
+  color: var(--surface);
+  box-shadow: none;
 }
 
-/* Primary action: ink on board. */
 .btn-ink {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0 1.1rem;
+  padding: 0 1.15rem;
   height: 2.5rem;
   border-radius: var(--radius-md);
   background: var(--ink);
-  color: var(--board);
+  color: var(--surface);
   font-weight: 500;
   transition: opacity 120ms ease;
 }
 
-.btn-ink:hover {
-  opacity: 0.88;
-}
-
-.btn-ink:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
+.btn-ink:hover { opacity: 0.88; }
+.btn-ink:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .btn-line {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  padding: 0 0.85rem;
+  padding: 0 0.9rem;
   height: 2.25rem;
   border-radius: var(--radius-md);
-  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
   color: var(--ink-2);
   font-size: 0.875rem;
-  transition: color 120ms ease, border-color 120ms ease;
+  transition: color 120ms ease, box-shadow 120ms ease;
 }
 
-.btn-line:hover {
-  color: var(--ink);
-  border-color: var(--ink-3);
-}
+.btn-line:hover { color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink-3); }
 
-/* Side marks: the two stones of the board. */
+/* A voice mark: the colored dot that always sits next to a speaker's name. */
 .stone {
   display: inline-block;
-  width: 0.7rem;
-  height: 0.7rem;
+  width: 0.625rem;
+  height: 0.625rem;
   border-radius: 999px;
   flex-shrink: 0;
 }
 
-.stone-pro { background: var(--pro); }
-.stone-con { background: var(--con); }
+.stone-pro { background: var(--voice-a); }
+.stone-con { background: var(--voice-b); }
+.stone-jury { background: var(--judge); }
 
-/* ---- Legacy class names, restyled so untouched markup follows the board ---- */
+/* ---- Streaming ---------------------------------------------------------------- */
 
-.gradient-bg { background: var(--board); }
-.text-gradient { color: var(--ink); }
-.glass { background: var(--surface); border: 1px solid var(--line); }
-.card-modern { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); }
-.btn-primary { background: var(--ink); color: var(--board); border-radius: var(--radius-md); }
-.btn-primary:hover { opacity: 0.88; }
-.shadow-soft, .shadow-soft-sm, .shadow-soft-lg { box-shadow: none; }
+@keyframes caret { 50% { opacity: 0; } }
 
-/* ---- Motion: one deliberate moment per action, nothing on page load ---- */
+/* Blinking caret after text that is still being written. */
+@utility streaming {
+  &::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  background: currentColor;
+  animation: caret 1s steps(1) infinite;
+  }
+}
 
-/* Position only: if animations are paused (background window), content is still fully visible. */
+/* Position only, so paused animations (background window) never hide content. */
 @keyframes arrive {
   from { transform: translateY(6px); }
   to { transform: none; }
@@ -303,16 +312,23 @@
 
 .arrive { animation: arrive 220ms ease-out both; }
 
-/* Old entrance utilities are kept as no-ops so nothing waits on an animation to become visible. */
-.animate-fade-in, .animate-slide-up, .animate-scale-in, .animate-elastic, .animate-spring { animation: none; }
-.opacity-0.animate-fade-in, .opacity-0.animate-slide-up, .opacity-0.animate-scale-in, .opacity-0.animate-elastic { opacity: 1; }
-
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---- Legacy names kept quiet so untouched markup follows the system ---- */
+
+.gradient-bg { background: var(--page); }
+.text-gradient { color: var(--ink); }
+.glass { background: var(--surface); box-shadow: var(--shadow-card); }
+.card-modern { background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+.btn-primary { background: var(--ink); color: var(--surface); border-radius: var(--radius-md); }
+.shadow-soft, .shadow-soft-sm, .shadow-soft-lg { box-shadow: none; }
+.animate-fade-in, .animate-slide-up, .animate-scale-in, .animate-elastic, .animate-spring { animation: none; }
 
 /* ---- Markdown inside speeches ---- */
 

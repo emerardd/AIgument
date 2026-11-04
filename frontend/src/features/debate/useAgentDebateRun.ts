@@ -12,7 +12,10 @@ export function useAgentDebateRun(onProgress?: () => void) {
     const endRun = useAgentDebateStore(state => state.endRun)
 
     const start = useCallback((settings: DebateSettings) => {
-        beginRun(settings.topic, settings.rounds)
+        beginRun(settings.topic, settings.rounds, {
+            pro: settings.pro_model ?? settings.model,
+            con: settings.con_model ?? settings.model,
+        })
         onProgress?.()
         return run.start<AgentStreamEvent>(
             (onEvent, onError, signal) => debateAPI.streamAgentDebate(settings, onEvent, onError, signal),

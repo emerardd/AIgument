@@ -1,122 +1,94 @@
-import { lazy, Suspense } from 'react'
 import { useAgentDebateStore } from '@/stores/agentDebateStore'
-import type { AgentDebateMessage } from '@/stores/agentDebateStore'
-import type { AgentThinking } from '@/types'
-import { CopyButton } from '@/components/ui/CopyButton'
+import { TurnRail, type RailRound, type TurnState } from '@/components/session/TurnRail'
+import { Utterance } from '@/components/session/Utterance'
 import { ThinkingBubble } from './ThinkingBubble'
-import { LiveScore, RoundRuling } from './ScorePanel'
+import { RoundRuling } from './ScorePanel'
 
-const MarkdownRenderer = lazy(() =>
-    import('@/components/ui/MarkdownRenderer').then((module) => ({ default: module.MarkdownRenderer }))
-)
+const turnId = (round: number, who: 'pro' | 'con' | 'judge') => `r${round}-${who}`
 
-/*
- * The board: a vertical spine down the middle (left edge on phones).
- * 正方 moves sit left of it, 反方 moves right of it, one row per move,
- * and each round's ruling is laid across the spine.
- */
+/** Derive each turn's state from what the stream has produced so far. */
+function useDebateRail(): RailRound[] {
+    const { messages, thinkings, evaluations, totalRounds, isLoading, verdict } = useAgentDebateStore()
+    const rounds = Math.max(totalRounds, ...messages.map(m => m.round ?? 0))
 
-function Speech({ side, message, thinking, showThinking }: {
-    side: 'pro' | 'con'
-    message?: AgentDebateMessage
-    thinking?: AgentThinking
-    showThinking: boolean
-}) {
-    const isPro = side === 'pro'
-    const column = isPro ? 'md:col-start-1 md:pr-10' : 'md:col-start-3 md:row-start-2 md:pl-10'
-    const edge = isPro ? 'md:border-l-0 md:border-r-2 md:border-r-pro border-l-2 border-l-pro' : 'border-l-2 border-l-con'
+    return Array.from({ length: rounds }, (_, i) => {
+        const round = i + 1
+        const pro = messages.find(m => m.round === round && m.role === '正方')
+        const con = messages.find(m => m.round === round && m.role === '反方')
+        const ruled = evaluations.some(e => e.round === round)
+        const started = (side: 'pro' | 'con') => thinkings.some(t => t.round === round && t.side === side)
 
-    return (
-        <div className={`relative pl-9 md:pl-0 ${column}`}>
-            {/* the stone on the spine */}
-            <span
-                className={`stone stone-${side} absolute top-[0.45rem] left-3 -translate-x-1/2 md:translate-x-0 ${isPro ? 'md:left-auto md:-right-[0.35rem]' : 'md:-left-[0.35rem]'} ring-4 ring-board`}
-                aria-hidden="true"
-            />
-            <div className={`text-[0.8125rem] mb-1.5 flex items-center gap-2 ${isPro ? 'md:justify-end' : ''}`}>
-                <span className={isPro ? 'text-pro font-medium' : 'text-con font-medium'}>{isPro ? '正方' : '反方'}</span>
-            </div>
+        const state = (done: boolean, begun: boolean): TurnState =>
+            done ? 'done' : begun && isLoading ? 'live' : 'pending'
 
-            {showThinking && thinking && (
-                <div className={`mb-2 ${isPro ? 'md:flex md:justify-end' : ''}`}>
-                    <ThinkingBubble thinking={thinking} />
-                </div>
-            )}
-
-            <div className={`group relative bg-surface rounded-md px-5 py-4 text-[0.9375rem] ${edge}`}>
-                {message?.content ? (
-                    <>
-                        <Suspense fallback={<p className="whitespace-pre-wrap">{message.content}</p>}>
-                            <MarkdownRenderer content={message.content} />
-                        </Suspense>
-                        <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                            <CopyButton text={message.content} />
-                        </div>
-                    </>
-                ) : (
-                    <p className="text-sm text-ink-3">正在组织发言…</p>
-                )}
-            </div>
-        </div>
-    )
+        return {
+            round,
+            turns: [
+                { target: turnId(round, 'pro'), voice: 'a', label: '正方发言', state: state(!!con || ruled || !!verdict, !!pro || started('pro')) },
+                { target: turnId(round, 'con'), voice: 'b', label: '反方发言', state: state(ruled || !!verdict, !!con || started('con')) },
+                { target: turnId(round, 'judge'), voice: 'judge', label: '评审', state: state(ruled, !!pro && !!con) },
+            ],
+        }
+    })
 }
 
-export function AgentDebateTranscript() {
-    const {
-        topic, messages, thinkings, evaluations, standings, currentRound,
-        showThinking, showScores, isLoading,
-    } = useAgentDebateStore()
+export function DebateRail() {
+    return <TurnRail rounds={useDebateRail()} label="辩论进度" />
+}
 
-    if (!topic) return null
-    const rounds = Array.from({ length: Math.max(currentRound, 1) }, (_, i) => i + 1)
+/** Rounds of the debate: 正方 on the left, 反方 on the right, the jury across. */
+export function AgentDebateTranscript() {
+    const { messages, thinkings, evaluations, currentRound, showThinking, showScores, models } = useAgentDebateStore()
+    const rail = useDebateRail()
+    const rounds = rail.filter(r => r.round <= Math.max(currentRound, 1))
 
     return (
-        <section aria-label="辩论过程">
-            <div className="sticky top-[57px] md:top-0 z-20 bg-board/95 backdrop-blur-[2px] border-b border-line py-3 mb-6 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-                <span className="flex items-center gap-2 text-sm"><span className="stone stone-pro" aria-hidden="true" />正方</span>
-                {standings && isLoading ? <LiveScore standings={standings} /> : <span />}
-                <span className="flex items-center justify-end gap-2 text-sm">反方<span className="stone stone-con" aria-hidden="true" /></span>
-            </div>
+        <div className="space-y-14">
+            {rounds.map(({ round, turns }) => {
+                const pro = messages.find(m => m.round === round && m.role === '正方')
+                const con = messages.find(m => m.round === round && m.role === '反方')
+                const proThinking = thinkings.find(t => t.round === round && t.side === 'pro')
+                const conThinking = thinkings.find(t => t.round === round && t.side === 'con')
+                const ruling = evaluations.find(e => e.round === round)
+                const [proTurn, conTurn] = turns
 
-            <h2 className="display text-[1.5rem] sm:text-[1.875rem] text-center max-w-[32rem] mx-auto mb-10">{topic}</h2>
+                return (
+                    <section key={round} aria-label={`第 ${round} 轮`} className="space-y-6">
+                        <h2 className="flex items-center gap-3">
+                            <span className="numeral text-[1.25rem] text-ink-2">{round}</span>
+                            <span className="t-meta">第 {round} 轮</span>
+                            <span className="flex-1 h-px bg-line" aria-hidden="true" />
+                        </h2>
 
-            <div className="relative">
-                <div className="absolute top-0 bottom-0 left-3 md:left-1/2 w-px bg-line-strong md:-translate-x-1/2" aria-hidden="true" />
+                        {(pro || proThinking) && (
+                            <Utterance
+                                id={turnId(round, 'pro')}
+                                voice="a"
+                                speaker="正方"
+                                meta={models?.pro}
+                                content={pro?.content}
+                                streaming={proTurn.state === 'live'}
+                                before={showThinking && proThinking ? <ThinkingBubble thinking={proThinking} /> : null}
+                            />
+                        )}
 
-                {rounds.map((round) => {
-                    const pro = messages.find(m => m.round === round && m.role === '正方')
-                    const con = messages.find(m => m.round === round && m.role === '反方')
-                    const proThinking = thinkings.find(t => t.round === round && t.side === 'pro')
-                    const conThinking = thinkings.find(t => t.round === round && t.side === 'con')
-                    const ruling = evaluations.find(e => e.round === round)
-                    if (round > currentRound && !pro && !con && !proThinking) return null
+                        {(con || conThinking) && (
+                            <Utterance
+                                id={turnId(round, 'con')}
+                                voice="b"
+                                speaker="反方"
+                                meta={models?.con}
+                                content={con?.content}
+                                streaming={conTurn.state === 'live'}
+                                align="end"
+                                before={showThinking && conThinking ? <ThinkingBubble thinking={conThinking} /> : null}
+                            />
+                        )}
 
-                    return (
-                        <div key={round} className="relative pb-12">
-                            <div className="relative z-10 flex md:justify-center mb-6">
-                                <span className="bg-board px-3 py-0.5 rounded-full border border-line-strong text-[0.8125rem] text-ink-2">
-                                    第 {round} 轮
-                                </span>
-                            </div>
-
-                            <div className="grid md:grid-cols-[1fr_0_1fr] gap-y-8">
-                                {(pro || proThinking) && (
-                                    <Speech side="pro" message={pro} thinking={proThinking} showThinking={showThinking} />
-                                )}
-                                {(con || conThinking) && (
-                                    <Speech side="con" message={con} thinking={conThinking} showThinking={showThinking} />
-                                )}
-                            </div>
-
-                            {showScores && ruling && (
-                                <div className="mt-8 pl-9 md:pl-0">
-                                    <RoundRuling evaluation={ruling} />
-                                </div>
-                            )}
-                        </div>
-                    )
-                })}
-            </div>
-        </section>
+                        {showScores && ruling && <RoundRuling id={turnId(round, 'judge')} evaluation={ruling} />}
+                    </section>
+                )
+            })}
+        </div>
     )
 }
