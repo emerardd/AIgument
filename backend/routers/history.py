@@ -9,6 +9,7 @@ from sqlalchemy import func
 
 from database import get_db
 from models.session import Session, Message
+from utils.timefmt import to_iso
 
 router = APIRouter(prefix="/api", tags=["history"])
 
@@ -75,6 +76,7 @@ async def get_history(
             Session.topic,
             Session.session_type.label("type"),
             Session.created_at.label("start_time"),
+            Session.status,
             func.count(Message.id).label("message_count")
         ).outerjoin(Message).group_by(Session.id)
 
@@ -92,8 +94,9 @@ async def get_history(
                 "session_id": r.session_id,
                 "topic": r.topic or "未命名会话",
                 "type": r.type,
-                "start_time": r.start_time.isoformat() if r.start_time else None,
-                "message_count": r.message_count
+                "start_time": to_iso(r.start_time),
+                "message_count": r.message_count,
+                "status": r.status,
             })
 
         return {
@@ -132,13 +135,13 @@ async def get_session_detail(
             "mode": (session.settings or {}).get("mode"),
             "status": session.status,
             "error": session.error,
-            "completed_at": session.completed_at.isoformat() if session.completed_at else None,
+            "completed_at": to_iso(session.completed_at),
             "messages": [
                 {
                     "id": msg.id,
                     "role": msg.role,
                     "content": msg.content,
-                    "created_at": msg.created_at.isoformat() if msg.created_at else None,
+                    "created_at": to_iso(msg.created_at),
                     "meta_info": msg.meta_info
                 }
                 for msg in messages
@@ -203,7 +206,7 @@ async def export_session(
             # Markdown格式
             content = f"# {session.topic or '会话记录'}\n\n"
             content += f"类型: {session.session_type}\n"
-            content += f"时间: {session.created_at.isoformat() if session.created_at else 'N/A'}\n\n"
+            content += f"时间: {to_iso(session.created_at) or 'N/A'}\n\n"
             content += "---\n\n"
 
             for msg in messages:
@@ -223,7 +226,7 @@ async def export_session(
             lines = [
                 session.topic or "会话记录",
                 f"类型: {session.session_type}",
-                f"时间: {session.created_at.isoformat() if session.created_at else 'N/A'}",
+                f"时间: {to_iso(session.created_at) or 'N/A'}",
                 "-" * 40,
                 "",
             ]
@@ -248,12 +251,12 @@ async def export_session(
             "session_id": session.id,
             "type": session.session_type,
             "topic": session.topic,
-            "created_at": session.created_at.isoformat() if session.created_at else None,
+            "created_at": to_iso(session.created_at),
             "messages": [
                 {
                     "role": msg.role,
                     "content": msg.content,
-                    "created_at": msg.created_at.isoformat() if msg.created_at else None
+                    "created_at": to_iso(msg.created_at)
                 }
                 for msg in messages
             ]

@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from database import Base
+from utils.timefmt import to_iso
 
 
 class Session(Base):
@@ -32,12 +33,12 @@ class Session(Base):
             "id": self.id,
             "session_type": self.session_type,
             "topic": self.topic,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "created_at": to_iso(self.created_at),
+            "updated_at": to_iso(self.updated_at),
             "settings": self.settings,
             "status": self.status,
             "error": self.error,
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "completed_at": to_iso(self.completed_at),
             "result": self.result,
             "messages": [msg.to_dict() for msg in self.messages]
         }
@@ -61,6 +62,6 @@ class Message(Base):
             "id": self.id,
             "role": self.role,
             "content": self.content,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "created_at": to_iso(self.created_at),
             "meta_info": self.meta_info
         }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { HistoryList } from '@/components/history/HistoryList'
 import { SessionDetailModal } from '@/components/history/SessionDetailModal'
+import { StatsPanel } from '@/components/history/StatsPanel'
 import { History as HistoryIcon, Clock, Archive } from 'lucide-react'
 
 export default function History() {
@@ -49,6 +50,7 @@ export default function History() {
 
                 {/* History List */}
                 <div className="max-w-4xl mx-auto animate-elastic delay-500 opacity-0">
+                    <StatsPanel />
                     <HistoryList onViewDetail={(id) => setSelectedId(id)} />
                 </div>
 

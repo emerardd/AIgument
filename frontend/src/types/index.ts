@@ -23,12 +23,38 @@ export interface DebateSettings {
 
 export type SessionType = 'debate' | 'chat' | 'qa' | 'dialectic' | 'dual_chat' | 'qa_socratic'
 
+export type SessionStatus = 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted'
+
 export interface HistoryItem {
     session_id: number
     topic: string
     start_time: string
     message_count: number
     type: SessionType
+    status?: SessionStatus
+}
+
+export interface ModelStanding {
+    model: string
+    debates: number
+    wins: number
+    losses: number
+    ties: number
+    win_rate: number
+    avg_score: number
+}
+
+export interface DebateStats {
+    total_debates: number
+    pro_wins: number
+    con_wins: number
+    ties: number
+    mixed_model_debates: number
+    avg_score_pro: number | null
+    avg_score_con: number | null
+    model_usage: Record<string, number>
+    leaderboard: ModelStanding[]
+    sessions_by_status: Partial<Record<SessionStatus, number>>
 }
 
 // ====== API响应类型 ======

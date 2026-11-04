@@ -16,6 +16,24 @@ class SessionTypeMismatchError(ValueError):
     """The session to resume belongs to another mode."""
 
 
+INTERRUPTED_ERROR = "应用在运行结束前关闭，本次会话已中断"
+
+
+def recover_interrupted_runs(db: DBSession) -> int:
+    """Mark runs left ``running`` by a previous process as ``interrupted``.
+
+    The desktop app runs one backend process, so at startup no run can still be
+    in progress; a ``running`` row means the process was killed mid-run.
+    """
+    count = (
+        db.query(Session)
+        .filter(Session.status == "running")
+        .update({Session.status: "interrupted", Session.error: INTERRUPTED_ERROR}, synchronize_session=False)
+    )
+    db.commit()
+    return count
+
+
 class SessionRunRepository:
     def __init__(self, db: DBSession):
         self.db = db

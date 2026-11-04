@@ -11,6 +11,7 @@ from database import get_db
 from models.session import Session
 from models.debate_record import DebateRecord
 from utils.logger import get_logger
+from utils.timefmt import to_iso
 
 logger = get_logger(__name__)
 
@@ -42,38 +43,74 @@ async def get_debate_analysis(session_id: int, db: DBSession = Depends(get_db)):
         "verdict": record.verdict,
         "evaluations": record.evaluations,
         "run_config": record.run_config,
-        "created_at": record.created_at.isoformat() if record.created_at else None,
-        "completed_at": record.completed_at.isoformat() if record.completed_at else None,
+        "created_at": to_iso(record.created_at),
+        "completed_at": to_iso(record.completed_at),
     }
+
+
+def _model_label(provider: str | None, model: str | None) -> str | None:
+    if not model:
+        return None
+    return f"{provider}/{model}" if provider else model
+
+
+def _leaderboard(records: list[DebateRecord]) -> list[dict]:
+    """Per-model results from mixed-model debates (same-model debates say nothing about a model)."""
+    rows: dict[str, dict] = {}
+    for record in records:
+        if not record.is_mixed:
+            continue
+        sides = (
+            ("pro", _model_label(record.pro_provider, record.pro_model), record.total_score_pro),
+            ("con", _model_label(record.con_provider, record.con_model), record.total_score_con),
+        )
+        if sides[0][1] == sides[1][1]:
+            continue
+        for side, label, score in sides:
+            if label is None:
+                continue
+            row = rows.setdefault(label, {"model": label, "debates": 0, "wins": 0, "losses": 0, "ties": 0, "_score": 0.0})
+            row["debates"] += 1
+            row["_score"] += score or 0
+            if record.winner == "tie" or not record.winner:
+                row["ties"] += 1
+            elif record.winner == side:
+                row["wins"] += 1
+            else:
+                row["losses"] += 1
+    board = []
+    for row in rows.values():
+        score = row.pop("_score")
+        row["win_rate"] = round(row["wins"] / row["debates"], 3)
+        row["avg_score"] = round(score / row["debates"], 2)
+        board.append(row)
+    return sorted(board, key=lambda r: (-r["win_rate"], -r["debates"], r["model"]))
 
 
 @router.get("/stats")
 async def get_debate_stats(db: DBSession = Depends(get_db)):
-    """获取辩论统计数据"""
-    total = db.query(func.count(DebateRecord.id)).scalar() or 0
-    pro_wins = db.query(func.count(DebateRecord.id)).filter(DebateRecord.winner == "pro").scalar() or 0
-    con_wins = db.query(func.count(DebateRecord.id)).filter(DebateRecord.winner == "con").scalar() or 0
-    ties = db.query(func.count(DebateRecord.id)).filter(DebateRecord.winner == "tie").scalar() or 0
-    mixed_count = db.query(func.count(DebateRecord.id)).filter(DebateRecord.is_mixed == 1).scalar() or 0
+    """辩论统计：胜负分布、混合模型排行与会话状态"""
+    records = db.query(DebateRecord).all()
+    winners = [record.winner for record in records]
+    model_usage: dict[str, int] = {}
+    for record in records:
+        for label in (_model_label(record.pro_provider, record.pro_model), _model_label(record.con_provider, record.con_model)):
+            if label:
+                model_usage[label] = model_usage.get(label, 0) + 1
 
-    # 模型使用统计
-    model_stats = {}
-    pro_model_rows = db.query(DebateRecord.pro_model, func.count(DebateRecord.id)).filter(
-        DebateRecord.pro_model.isnot(None)
-    ).group_by(DebateRecord.pro_model).all()
-    con_model_rows = db.query(DebateRecord.con_model, func.count(DebateRecord.id)).filter(
-        DebateRecord.con_model.isnot(None)
-    ).group_by(DebateRecord.con_model).all()
-    for model_name, count in pro_model_rows:
-        model_stats[model_name] = model_stats.get(model_name, 0) + count
-    for model_name, count in con_model_rows:
-        model_stats[model_name] = model_stats.get(model_name, 0) + count
+    status_rows = db.query(Session.status, func.count(Session.id)).group_by(Session.status).all()
+    scores_pro = [r.total_score_pro or 0 for r in records]
+    scores_con = [r.total_score_con or 0 for r in records]
 
     return {
-        "total_debates": total,
-        "pro_wins": pro_wins,
-        "con_wins": con_wins,
-        "ties": ties,
-        "mixed_model_debates": mixed_count,
-        "model_usage": model_stats,
+        "total_debates": len(records),
+        "pro_wins": winners.count("pro"),
+        "con_wins": winners.count("con"),
+        "ties": winners.count("tie"),
+        "mixed_model_debates": sum(1 for r in records if r.is_mixed),
+        "avg_score_pro": round(sum(scores_pro) / len(records), 2) if records else None,
+        "avg_score_con": round(sum(scores_con) / len(records), 2) if records else None,
+        "model_usage": model_usage,
+        "leaderboard": _leaderboard(records),
+        "sessions_by_status": {status: count for status, count in status_rows},
     }

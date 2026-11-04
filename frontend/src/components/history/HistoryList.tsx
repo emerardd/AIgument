@@ -7,7 +7,28 @@ import { useHistoryStore } from '@/stores/historyStore'
 import { useToast } from '@/hooks/useToast'
 import { HistoryListSkeleton } from '@/components/ui/Skeleton'
 import { downloadSessionExport } from '@/utils/download'
-import { Trash2, Eye, Download, Calendar, MessageSquare, Loader2, Search, X } from 'lucide-react'
+import { Trash2, Eye, Download, Calendar, MessageSquare, Loader2, Search, X, AlertCircle, CircleSlash, PauseCircle } from 'lucide-react'
+import type { SessionStatus } from '@/types'
+
+// Completed sessions need no badge; other states carry an icon and a label, not color alone.
+const STATUS_BADGES: Partial<Record<SessionStatus, { text: string; icon: typeof AlertCircle; className: string }>> = {
+    running: { text: '进行中', icon: Loader2, className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+    failed: { text: '失败', icon: AlertCircle, className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
+    interrupted: { text: '已中断', icon: PauseCircle, className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' },
+    cancelled: { text: '已取消', icon: CircleSlash, className: 'bg-muted text-muted-foreground' },
+}
+
+function StatusBadge({ status }: { status?: SessionStatus }) {
+    const badge = status ? STATUS_BADGES[status] : undefined
+    if (!badge) return null
+    const Icon = badge.icon
+    return (
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${badge.className}`}>
+            <Icon className="h-3 w-3" />
+            {badge.text}
+        </span>
+    )
+}
 
 interface HistoryListProps {
     onViewDetail: (id: number) => void
@@ -169,6 +190,7 @@ export function HistoryList({ onViewDetail }: HistoryListProps) {
                                                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeInfo.color}`}>
                                                     {typeInfo.text}
                                                 </span>
+                                                <StatusBadge status={item.status} />
                                                 <h3 className="font-semibold text-lg truncate">
                                                     {item.topic || '未命名会话'}
                                                 </h3>

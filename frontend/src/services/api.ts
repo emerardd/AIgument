@@ -2,6 +2,7 @@ import axios from 'axios'
 import type {
     AgentStreamEvent,
     DialecticStreamEvent,
+    DebateStats,
     DebateSettings,
     HistoryItem,
     SessionType,
@@ -284,3 +285,9 @@ export const settingsAPI = {
 }
 
 export default api
+
+// ====== 统计 API ======
+
+export const analysisAPI = {
+    getStats: () => api.get<DebateStats>('/api/analysis/stats'),
+}

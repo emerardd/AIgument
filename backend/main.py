@@ -15,7 +15,8 @@ from fastapi.responses import FileResponse, JSONResponse
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from config import get_settings
-from database import init_db
+from database import SessionLocal, init_db
+from repositories.session_run import recover_interrupted_runs
 from routers.debate import router as debate_router
 from routers import chat, qa, history, evaluation, settings as settings_router
 from routers import dialectic
@@ -33,6 +34,10 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     logger.info("正在初始化数据库...")
     init_db()
+    with SessionLocal() as db:
+        interrupted = recover_interrupted_runs(db)
+    if interrupted:
+        logger.warning(f"已将 {interrupted} 个未正常结束的会话标记为 interrupted")
     logger.info("数据库初始化完成")
     yield
     logger.info("应用关闭")
