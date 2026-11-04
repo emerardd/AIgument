@@ -8,8 +8,7 @@ import { PageSkeleton } from './components/ui/Skeleton'
 import './index.css'
 
 const Home = lazy(() => import('./pages/Home'))
-const AgentDebate = lazy(() => import('./pages/AgentDebate'))
-const DialecticEngine = lazy(() => import('./pages/DialecticEngine'))
+const Debate = lazy(() => import('./pages/Debate'))
 const History = lazy(() => import('./pages/History'))
 const DualChat = lazy(() => import('./pages/DualChat'))
 const SocraticQA = lazy(() => import('./pages/SocraticQA'))
@@ -25,9 +24,9 @@ function App() {
             <Suspense fallback={<PageSkeleton />}>
               <Routes>
                 <Route path="/" element={<Home />} />
-                <Route path="/debate" element={<AgentDebate />} />
+                <Route path="/debate" element={<Debate />} />
                 <Route path="/agent-debate" element={<Navigate to="/debate" replace />} />
-                <Route path="/dialectic-engine" element={<DialecticEngine />} />
+                <Route path="/dialectic-engine" element={<Navigate to="/debate?mode=dialectic" replace />} />
                 <Route path="/chat" element={<Navigate to="/dual-chat" replace />} />
                 <Route path="/dual-chat" element={<DualChat />} />
                 <Route path="/qa" element={<Navigate to="/socratic-qa" replace />} />

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Brain, Lightbulb, BookOpen, HelpCircle, Send, RefreshCw, ChevronRight, Sparkles, Square } from 'lucide-react'
+import { useStreamRun } from '@/hooks/useStreamRun'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { qaAPI } from '@/services/api'
 import type { ChatHistoryItem, SocraticQAStreamEvent } from '@/services/api'
@@ -27,30 +28,28 @@ const MODE_ICONS: Record<string, React.ReactNode> = {
 }
 
 export function SocraticQAView() {
-    const [question, setQuestion] = useState('')
-    const [modes, setModes] = useState<QAMode[]>([])
-    const [selectedMode, setSelectedMode] = useState('hybrid')
-    const [response, setResponse] = useState('')
-    const [isLoading, setIsLoading] = useState(false)
-    const [error, setError] = useState<string | null>(null)
-    const [history, setHistory] = useState<ChatHistoryItem[]>([])
-    const [sessionId, setSessionId] = useState<number | null>(null)
-    const responseRef = useRef<HTMLDivElement>(null)
-    const abortRef = useRef<AbortController | null>(null)
-    const { defaultProvider, defaultModel } = useSettingsStore()
     const location = useLocation()
     const navigate = useNavigate()
+    // 从历史记录恢复会话（SessionDetailModal 通过路由 state 传入），只在挂载时读取一次
+    const [restored] = useState(() => (location.state as SocraticRestoreState | null)?.restore ?? null)
 
-    // 从历史记录恢复会话（SessionDetailModal 通过路由 state 传入）
+    const [question, setQuestion] = useState('')
+    const [modes, setModes] = useState<QAMode[]>([])
+    const [selectedMode, setSelectedMode] = useState(restored?.mode ?? 'hybrid')
+    const [response, setResponse] = useState(
+        () => [...(restored?.history ?? [])].reverse().find(item => item.role === 'assistant')?.content ?? ''
+    )
+    const [isLoading, setIsLoading] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+    const [history, setHistory] = useState<ChatHistoryItem[]>(restored?.history ?? [])
+    const [sessionId, setSessionId] = useState<number | null>(restored?.sessionId ?? null)
+    const responseRef = useRef<HTMLDivElement>(null)
+    const run = useStreamRun()
+    const { defaultProvider, defaultModel } = useSettingsStore()
+
+    // 清掉路由 state，刷新页面时不会再次恢复
     useEffect(() => {
-        const restore = (location.state as SocraticRestoreState | null)?.restore
-        if (!restore) return
-        setSessionId(restore.sessionId)
-        setHistory(restore.history)
-        if (restore.mode) setSelectedMode(restore.mode)
-        const lastAnswer = [...restore.history].reverse().find(item => item.role === 'assistant')
-        setResponse(lastAnswer?.content ?? '')
-        navigate(location.pathname, { replace: true, state: null })
+        if (location.state) navigate(location.pathname, { replace: true, state: null })
     }, [location.state, location.pathname, navigate])
 
     // 获取可用模式
@@ -60,17 +59,14 @@ export function SocraticQAView() {
             .catch(err => console.error('Failed to fetch modes:', err))
     }, [])
 
-    useEffect(() => {
-        return () => abortRef.current?.abort()
-    }, [])
-
     // 自动滚动
     useEffect(() => {
         responseRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, [response])
 
-    const askQuestion = async () => {
-        if (!question.trim()) {
+    const askQuestion = () => {
+        const asked = question.trim()
+        if (!asked) {
             setError('请输入问题')
             return
         }
@@ -78,61 +74,46 @@ export function SocraticQAView() {
         setIsLoading(true)
         setResponse('')
         setError(null)
-        abortRef.current?.abort()
-        abortRef.current = new AbortController()
 
-        try {
-            let fullResponse = ''
-            await qaAPI.streamSocraticQA(
-                question,
+        let fullResponse = ''
+        void run.start<SocraticQAStreamEvent>(
+            (onEvent, onError, signal) => qaAPI.streamSocraticQA(
+                asked,
                 selectedMode as 'socratic' | 'structured' | 'hybrid',
-                (data: SocraticQAStreamEvent) => {
-                    if (data.type === 'session' && data.session_id) {
-                        setSessionId(data.session_id)
-                    }
-                    if (data.type === 'content' && data.content !== undefined) {
-                        setResponse(data.content)
-                        fullResponse = data.content
-                    } else if (data.type === 'complete' && data.content !== undefined) {
-                        fullResponse = data.content
-                    } else if (data.type === 'error') {
-                        setError(data.error || 'Unknown error')
-                    }
-                },
-                (err) => {
-                    setError(err.message)
-                },
+                onEvent,
+                onError,
                 defaultProvider,
                 defaultModel,
                 history,
                 sessionId ?? undefined,
-                abortRef.current.signal
-            )
-
-            // 更新历史
-            if (fullResponse) {
-                setHistory(prev => [
-                    ...prev,
-                    { role: 'user', content: question },
-                    { role: 'assistant', content: fullResponse }
-                ])
-            }
-
-        } catch (err) {
-            if (err instanceof Error && err.name === 'AbortError') {
-                return
-            }
-            setError(err instanceof Error ? err.message : 'Unknown error')
-        } finally {
-            setIsLoading(false)
-        }
+                signal,
+            ),
+            {
+                onEvent: (data) => {
+                    if (data.type === 'session' && data.session_id) {
+                        setSessionId(data.session_id)
+                    } else if ((data.type === 'content' || data.type === 'complete') && data.content !== undefined) {
+                        setResponse(data.content)
+                        fullResponse = data.content
+                    }
+                },
+                onFinish: (outcome, message) => {
+                    setIsLoading(false)
+                    if (outcome === 'completed' && fullResponse) {
+                        setHistory(prev => [
+                            ...prev,
+                            { role: 'user', content: asked },
+                            { role: 'assistant', content: fullResponse },
+                        ])
+                    } else if (outcome === 'failed' || outcome === 'truncated') {
+                        setError(message || 'Unknown error')
+                    }
+                },
+            },
+        )
     }
 
-    const cancelQuestion = () => {
-        abortRef.current?.abort()
-        abortRef.current = null
-        setIsLoading(false)
-    }
+    const cancelQuestion = () => run.cancel()
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {

@@ -48,4 +48,18 @@ assertMatches(
   'history restores socratic sessions'
 )
 
+assertMatches('src/App.tsx', app, /path="\/dialectic-engine"[^>]*Navigate to="\/debate\?mode=dialectic"/, 'dialectic redirects to unified debate')
+for (const view of [
+  'src/features/debate/useAgentDebateRun.ts',
+  'src/components/dialectic/DialecticView.tsx',
+  'src/components/chat/DualChatView.tsx',
+  'src/components/qa/SocraticQAView.tsx',
+]) {
+  const content = read(view)
+  assertIncludes(view, content, 'useStreamRun')
+  if (content.includes('new AbortController')) {
+    throw new Error(`${view} manages its own AbortController; use useStreamRun instead`)
+  }
+}
+
 console.log('Frontend interaction contracts passed.')

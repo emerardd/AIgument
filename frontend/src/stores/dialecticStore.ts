@@ -1,89 +1,48 @@
 import { create } from 'zustand'
-import type {
-    DialecticTree,
-    FallacyItem,
-} from '@/types'
-import { createSessionState } from './sessionStore'
+import type { DialecticStreamEvent } from '@/types'
+import {
+    initialDialecticRun,
+    reduceDialecticEvent,
+    type DialecticRunState,
+} from '@/features/dialectic/dialecticReducer'
 
-export interface DialecticMessage {
-    round: number
-    role: '正题' | '反题' | '合题'
-    content: string
-    thinking?: Record<string, unknown>
-}
+export type { DialecticMessage } from '@/features/dialectic/dialecticReducer'
 
-interface DialecticState {
+interface DialecticState extends DialecticRunState {
     topic: string
-    sessionId: number | null
     rounds: number
-    currentRound: number
     isLoading: boolean
     error: string | null
-
-    messages: DialecticMessage[]
-    fallaciesByRound: Record<number, FallacyItem[]>
-    tree: DialecticTree | null
 
     showThinking: boolean
     showFallacies: boolean
 
-    setTopic: (topic: string) => void
-    setSessionId: (id: number) => void
-    setRounds: (rounds: number) => void
-    setCurrentRound: (round: number) => void
-    setLoading: (loading: boolean) => void
-    setError: (error: string | null) => void
-    addMessage: (message: DialecticMessage) => void
-    setFallacies: (round: number, items: FallacyItem[]) => void
-    setTree: (tree: DialecticTree) => void
+    beginRun: (topic: string, rounds: number) => void
+    applyEvent: (event: DialecticStreamEvent) => void
+    endRun: (error?: string | null) => void
     toggleThinking: () => void
     toggleFallacies: () => void
-    clear: () => void
 }
 
 export const useDialecticStore = create<DialecticState>((set) => ({
+    ...initialDialecticRun,
     topic: '',
-    sessionId: null,
     rounds: 5,
-    currentRound: 0,
-    ...createSessionState<DialecticMessage>(),
-    fallaciesByRound: {},
-    tree: null,
+    isLoading: false,
+    error: null,
 
     showThinking: true,
     showFallacies: true,
 
-    setTopic: (topic) => set({ topic }),
-    setSessionId: (id) => set({ sessionId: id }),
-    setRounds: (rounds) => set({ rounds }),
-    setCurrentRound: (round) => set({ currentRound: round }),
-    setLoading: (loading) => set({ isLoading: loading }),
-    setError: (error) => set({ error }),
+    beginRun: (topic, rounds) => set({ ...initialDialecticRun, topic, rounds, isLoading: true, error: null }),
 
-    addMessage: (message) => set((state) => ({
-        messages: [...state.messages, message]
-    })),
+    applyEvent: (event) => set((state) => {
+        const next = reduceDialecticEvent(state, event)
+        return next === state ? state : next
+    }),
 
-    setFallacies: (round, items) => set((state) => ({
-        fallaciesByRound: {
-            ...state.fallaciesByRound,
-            [round]: items
-        }
-    })),
-
-    setTree: (tree) => set({ tree }),
+    endRun: (error = null) => set({ isLoading: false, error }),
 
     toggleThinking: () => set((state) => ({ showThinking: !state.showThinking })),
     toggleFallacies: () => set((state) => ({ showFallacies: !state.showFallacies })),
-
-    clear: () => set({
-        topic: '',
-        sessionId: null,
-        currentRound: 0,
-        isLoading: false,
-        error: null,
-        messages: [],
-        fallaciesByRound: {},
-        tree: null,
-    }),
 }))

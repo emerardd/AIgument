@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Users, Play, MessageCircle, Sparkles, ChevronDown, Check, Square } from 'lucide-react'
+import { useStreamRun } from '@/hooks/useStreamRun'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { chatAPI } from '@/services/api'
 import type { DualChatStreamEvent } from '@/services/api'
@@ -35,7 +36,7 @@ export function DualChatView() {
     const [openDropdown, setOpenDropdown] = useState<'a' | 'b' | null>(null)
     const dropdownRefA = useRef<HTMLDivElement>(null)
     const dropdownRefB = useRef<HTMLDivElement>(null)
-    const abortRef = useRef<AbortController | null>(null)
+    const run = useStreamRun()
     const { defaultProvider, defaultModel } = useSettingsStore()
 
     // 点击外部关闭下拉
@@ -50,13 +51,8 @@ export function DualChatView() {
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
 
-    useEffect(() => {
-        return () => abortRef.current?.abort()
-    }, [])
-
     // 获取可用角色
     useEffect(() => {
-        setRolesLoading(true)
         chatAPI.getRoles()
             .then((res) => {
                 setRoles(res.data.roles || [])
@@ -73,7 +69,7 @@ export function DualChatView() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, [messages])
 
-    const startConversation = async () => {
+    const startConversation = () => {
         if (!topic.trim()) {
             setError('请输入对话主题')
             return
@@ -82,40 +78,23 @@ export function DualChatView() {
         setIsRunning(true)
         setMessages([])
         setError(null)
-        abortRef.current?.abort()
-        abortRef.current = new AbortController()
 
-        try {
-            await chatAPI.streamDualChat(
-                topic,
-                roleA,
-                roleB,
-                turns,
-                handleEvent,
-                (err) => {
-                    setError(err.message)
+        void run.start<DualChatStreamEvent>(
+            (onEvent, onError, signal) => chatAPI.streamDualChat(
+                topic, roleA, roleB, turns, onEvent, onError, defaultProvider, defaultModel, signal,
+            ),
+            {
+                onEvent: handleEvent,
+                onFinish: (outcome, message) => {
+                    setIsRunning(false)
+                    setCurrentSpeaker('')
+                    if (outcome === 'failed' || outcome === 'truncated') setError(message || 'Unknown error')
                 },
-                defaultProvider,
-                defaultModel,
-                abortRef.current.signal
-            )
-        } catch (err) {
-            if (err instanceof Error && err.name === 'AbortError') {
-                return
-            }
-            setError(err instanceof Error ? err.message : 'Unknown error')
-        } finally {
-            setIsRunning(false)
-            setCurrentSpeaker('')
-        }
+            },
+        )
     }
 
-    const stopConversation = () => {
-        abortRef.current?.abort()
-        abortRef.current = null
-        setIsRunning(false)
-        setCurrentSpeaker('')
-    }
+    const stopConversation = () => run.cancel()
 
     const handleEvent = (event: DualChatStreamEvent) => {
         switch (event.type) {

@@ -1,126 +1,55 @@
 import { create } from 'zustand'
-import type {
-    DebateMessage,
-    AgentThinking,
-    RoundEvaluation,
-    FinalVerdict,
-    DebateStandings
-} from '@/types'
-import { createSessionState } from './sessionStore'
+import type { AgentStreamEvent } from '@/types'
+import {
+    initialAgentDebateRun,
+    reduceAgentDebateEvent,
+    type AgentDebateRunState,
+} from '@/features/debate/agentDebateReducer'
 
-// 扩展消息类型，包含思考过程
-export interface AgentDebateMessage extends DebateMessage {
-    thinking?: AgentThinking['content']
-    confidence?: number
-}
+export type { AgentDebateMessage } from '@/features/debate/agentDebateReducer'
 
-interface AgentDebateState {
-    // 基础状态
-    messages: AgentDebateMessage[]
+interface AgentDebateState extends AgentDebateRunState {
+    topic: string
+    totalRounds: number
     isLoading: boolean
     error: string | null
-    topic: string
-    sessionId: number | null
 
-    // Multi-Agent 特有状态
-    mode: 'standard' | 'agent'  // 辩论模式
-    thinkings: AgentThinking[]  // 思考过程记录
-    evaluations: RoundEvaluation[]  // 各轮评估
-    standings: DebateStandings | null  // 实时比分
-    verdict: FinalVerdict | null  // 最终裁决
-    currentRound: number
-    totalRounds: number
+    showThinking: boolean
+    showScores: boolean
 
-    // UI 状态
-    showThinking: boolean  // 是否显示思考过程
-    showScores: boolean  // 是否显示评分
-
-    // Actions
-    addMessage: (message: AgentDebateMessage) => void
-    updateMessage: (index: number, content: string) => void
-    addThinking: (thinking: AgentThinking) => void
-    addEvaluation: (evaluation: RoundEvaluation) => void
-    setStandings: (standings: DebateStandings) => void
-    setVerdict: (verdict: FinalVerdict) => void
-    setSessionId: (id: number) => void
-    setCurrentRound: (round: number) => void
-    setTotalRounds: (rounds: number) => void
-    setLoading: (loading: boolean) => void
-    setError: (error: string | null) => void
-    setTopic: (topic: string) => void
-    setMode: (mode: 'standard' | 'agent') => void
+    /** Clear the previous result and mark a new run as loading. */
+    beginRun: (topic: string, totalRounds: number) => void
+    applyEvent: (event: AgentStreamEvent) => void
+    endRun: (error?: string | null) => void
     toggleShowThinking: () => void
     toggleShowScores: () => void
-    clear: () => void
 }
 
 export const useAgentDebateStore = create<AgentDebateState>((set) => ({
-    // 初始状态
-    ...createSessionState<AgentDebateMessage>(),
+    ...initialAgentDebateRun,
     topic: '',
-    sessionId: null,
-
-    mode: 'agent',
-    thinkings: [],
-    evaluations: [],
-    standings: null,
-    verdict: null,
-    currentRound: 0,
     totalRounds: 3,
+    isLoading: false,
+    error: null,
 
     showThinking: true,
     showScores: true,
 
-    // Actions
-    addMessage: (message) => set((state) => ({
-        messages: [...state.messages, message]
-    })),
+    beginRun: (topic, totalRounds) => set({
+        ...initialAgentDebateRun,
+        topic,
+        totalRounds,
+        isLoading: true,
+        error: null,
+    }),
 
-    updateMessage: (index, content) => set((state) => ({
-        messages: state.messages.map((msg, idx) =>
-            idx === index ? { ...msg, content } : msg
-        )
-    })),
+    applyEvent: (event) => set((state) => {
+        const next = reduceAgentDebateEvent(state, event)
+        return next === state ? state : next
+    }),
 
-    addThinking: (thinking) => set((state) => ({
-        thinkings: [...state.thinkings, thinking]
-    })),
-
-    addEvaluation: (evaluation) => set((state) => ({
-        evaluations: [...state.evaluations, evaluation]
-    })),
-
-    setStandings: (standings) => set({ standings }),
-
-    setVerdict: (verdict) => set({ verdict }),
-
-    setSessionId: (id) => set({ sessionId: id }),
-
-    setCurrentRound: (round) => set({ currentRound: round }),
-
-    setTotalRounds: (rounds) => set({ totalRounds: rounds }),
-
-    setLoading: (loading) => set({ isLoading: loading }),
-
-    setError: (error) => set({ error }),
-
-    setTopic: (topic) => set({ topic }),
-
-    setMode: (mode) => set({ mode }),
+    endRun: (error = null) => set({ isLoading: false, error }),
 
     toggleShowThinking: () => set((state) => ({ showThinking: !state.showThinking })),
-
     toggleShowScores: () => set((state) => ({ showScores: !state.showScores })),
-
-    clear: () => set({
-        messages: [],
-        error: null,
-        topic: '',
-        sessionId: null,
-        thinkings: [],
-        evaluations: [],
-        standings: null,
-        verdict: null,
-        currentRound: 0,
-    }),
 }))

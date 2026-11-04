@@ -120,7 +120,7 @@ export type DualChatStreamEvent =
     | { type: 'error'; session_id?: number; error?: string }
 
 export interface SocraticQAStreamEvent {
-    type: 'session' | 'content' | 'complete' | 'error'
+    type: 'session' | 'thinking' | 'content' | 'complete' | 'error'
     session_id?: number
     content?: string
     error?: string
