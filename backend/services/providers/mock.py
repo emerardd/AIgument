@@ -32,6 +32,11 @@ class MockProvider(BaseProvider):
         prompt = messages[-1].get("content", "") if messages else ""
         prompt_str = prompt if isinstance(prompt, str) else json.dumps(prompt, ensure_ascii=False)
 
+        # Speech prompts embed the earlier analysis as JSON for context, so check the
+        # instruction first; otherwise the analysis keys below would match and a
+        # speech request would get analysis JSON back.
+        if "直接输出" in prompt_str:
+            return self._mock_argument_text(rng)
         if "pro_score" in prompt_str and "con_score" in prompt_str:
             return json.dumps(self._mock_round_evaluation(rng), ensure_ascii=False)
         if "opening_strategy" in prompt_str and "key_arguments" in prompt_str:

@@ -61,3 +61,15 @@ class TestRetryWrapping:
 
         with pytest.raises(AIClientException):
             asyncio.run(client.get_completion([{"role": "user", "content": "hi"}]))
+
+
+def test_mock_speech_request_returns_prose_even_with_embedded_analysis():
+    """Speech prompts include the analysis JSON; the mock must still answer with prose."""
+    import asyncio
+    import json as _json
+    from services.providers.mock import MockProvider
+
+    analysis = {"opening_strategy": "x", "key_arguments": ["a"], "selected_strategy": "y", "counter_points": ["b"]}
+    prompt = f"【你的分析】\n{_json.dumps(analysis, ensure_ascii=False)}\n请直接输出你的发言内容，不要包含任何格式标记。"
+    text = asyncio.run(MockProvider().get_completion([{"role": "user", "content": prompt}]))
+    assert not text.lstrip().startswith("{")
