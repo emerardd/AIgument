@@ -62,13 +62,13 @@ export default function Home() {
 
                 <fieldset className="mt-8">
                     <legend className="text-sm text-ink-3 mb-3">用什么方式</legend>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 border-y border-line divide-x divide-line max-sm:[&>label:nth-child(n+3)]:border-t max-sm:[&>label:nth-child(3)]:border-l-0">
+                    <div className="panel overflow-hidden grid grid-cols-2 sm:grid-cols-4 divide-x divide-line max-sm:[&>label:nth-child(n+3)]:border-t max-sm:[&>label:nth-child(3)]:border-l-0">
                         {MODES.map(m => {
                             const selected = m.id === mode
                             return (
                                 <label
                                     key={m.id}
-                                    className={`relative cursor-pointer px-3 sm:px-4 py-4 transition-colors ${selected ? 'bg-surface' : 'hover:bg-surface/60'}`}
+                                    className={`relative cursor-pointer px-3 sm:px-4 py-4 transition-colors ${selected ? 'bg-pro-soft' : 'hover:bg-sunken/60'}`}
                                 >
                                     <input
                                         type="radio"
@@ -113,11 +113,11 @@ export default function Home() {
                 {recent === null ? (
                     <p className="text-sm text-ink-3 py-4">正在读取…</p>
                 ) : recent.length === 0 ? (
-                    <p className="text-sm text-ink-3 py-4 border-t border-line">还没有记录。完成的辩论、对话和问答都会出现在这里。</p>
+                    <p className="panel px-6 py-6 text-ink-2">还没有记录。完成的辩论、对话和问答都会出现在这里。</p>
                 ) : (
-                    <ul className="border-t border-line">
+                    <ul className="panel divide-y divide-line px-5">
                         {recent.map(item => (
-                            <li key={item.session_id} className="flex items-baseline gap-4 py-3 border-b border-line">
+                            <li key={item.session_id} className="flex items-baseline gap-4 py-3.5">
                                 <span className="w-16 shrink-0 text-[0.8125rem] text-ink-3">{SESSION_TYPE_LABELS[item.type] ?? item.type}</span>
                                 <span className="flex-1 min-w-0 truncate">{item.topic || '未命名'}</span>
                                 {item.status && STATUS_LABELS[item.status] && (

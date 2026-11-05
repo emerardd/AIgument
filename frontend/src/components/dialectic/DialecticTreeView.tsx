@@ -46,7 +46,7 @@ export function DialecticTreeView({ tree }: DialecticTreeViewProps) {
                 zoomOnScroll
             >
                 <Background gap={22} size={1} color="var(--line-strong)" />
-                <MiniMap pannable zoomable maskColor="color-mix(in srgb, var(--board) 70%, transparent)" nodeColor="var(--line-strong)" />
+                <MiniMap pannable zoomable maskColor="color-mix(in srgb, var(--page) 70%, transparent)" nodeColor="var(--line-strong)" />
                 <Controls />
             </ReactFlow>
         </div>

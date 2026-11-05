@@ -22,7 +22,7 @@ interface UtteranceProps {
     before?: ReactNode
     after?: ReactNode
     /** Where the block sits in a two-voice layout. */
-    align?: 'start' | 'end'
+    align?: 'start' | 'end' | 'center'
 }
 
 /** One turn of speech. Every mode renders speech through this block. */
@@ -30,7 +30,7 @@ export function Utterance({ id, voice, speaker, meta, content, streaming, before
     return (
         <article
             id={id}
-            className={`scroll-mt-40 w-full sm:w-[88%] ${align === 'end' ? 'sm:ml-auto' : ''}`}
+            className={`scroll-mt-40 w-full ${align === 'center' ? '' : 'sm:w-[88%]'} ${align === 'end' ? 'sm:ml-auto' : ''}`}
             aria-label={`${speaker}的发言`}
         >
             <header className="flex items-baseline gap-2 mb-2 px-1">

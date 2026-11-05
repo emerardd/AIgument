@@ -4,12 +4,43 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { useStreamRun } from '@/hooks/useStreamRun'
 import { useInitialTopic } from '@/hooks/useInitialTopic'
 import { dialecticAPI } from '@/services/api'
+import { TurnRail, type RailRound, type TurnState } from '@/components/session/TurnRail'
+import { SessionLayout, SideActions } from '@/components/session/SessionLayout'
 import { DialecticRoundPanel } from './DialecticRoundPanel'
+import { dialecticTurnId } from '@/features/dialectic/turnIds'
 import { DialecticTreeView } from './DialecticTreeView'
 import type { DialecticStreamEvent } from '@/types'
-import { Square } from 'lucide-react'
+import { RotateCcw, Square } from 'lucide-react'
 
 const ROUND_OPTIONS = [3, 5, 7]
+type Kind = 'thesis' | 'antithesis' | 'synthesis'
+
+function useDialecticRail(): { rail: RailRound[]; states: Record<number, Record<Kind, TurnState>> } {
+    const { messages, rounds, currentRound, isLoading } = useDialecticStore()
+    const states: Record<number, Record<Kind, TurnState>> = {}
+
+    const rail = Array.from({ length: Math.max(rounds, currentRound) }, (_, i) => {
+        const round = i + 1
+        const has = (role: string) => messages.some(m => m.round === round && m.role === role)
+        const thesis = has('正题'), antithesis = has('反题'), synthesis = has('合题')
+        const state = (done: boolean, begun: boolean): TurnState => (done ? 'done' : begun && isLoading ? 'live' : 'pending')
+
+        states[round] = {
+            thesis: state(thesis, currentRound >= round),
+            antithesis: state(antithesis, thesis),
+            synthesis: state(synthesis, antithesis),
+        }
+        return {
+            round,
+            turns: [
+                { target: dialecticTurnId(round, 'thesis'), voice: 'a' as const, label: '正题', state: states[round].thesis },
+                { target: dialecticTurnId(round, 'antithesis'), voice: 'b' as const, label: '反题', state: states[round].antithesis },
+                { target: dialecticTurnId(round, 'synthesis'), voice: 'judge' as const, label: '合题', state: states[round].synthesis },
+            ],
+        }
+    })
+    return { rail, states }
+}
 
 export function DialecticView() {
     const initialTopic = useInitialTopic()
@@ -19,10 +50,11 @@ export function DialecticView() {
     const run = useStreamRun()
 
     const {
-        topic, messages, fallaciesByRound, tree, currentRound, isLoading, error,
-        showThinking, showFallacies, beginRun, applyEvent, endRun, toggleThinking, toggleFallacies,
+        topic, rounds: totalRounds, messages, fallaciesByRound, tree, currentRound, isLoading, error,
+        showThinking, showFallacies, beginRun, applyEvent, endRun, reset, toggleThinking, toggleFallacies,
     } = useDialecticStore()
     const { defaultProvider, defaultModel } = useSettingsStore()
+    const { rail, states } = useDialecticRail()
 
     const scrollToEnd = useCallback(() => {
         setTimeout(() => endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 100)
@@ -45,31 +77,29 @@ export function DialecticView() {
         )
     }
 
-    const roundsToRender = Array.from({ length: Math.max(currentRound, 1) }, (_, i) => i + 1)
-
-    return (
-        <div className="space-y-10">
-            <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); if (isLoading) run.cancel(); else handleStart() }}>
+    if (!topic) {
+        return (
+            <form
+                className="panel px-5 sm:px-8 py-6 sm:py-8 max-w-[760px] space-y-5"
+                onSubmit={(e) => { e.preventDefault(); handleStart() }}
+            >
                 <div>
-                    <label htmlFor="dialectic-topic" className="block text-sm text-ink-3 mb-2">起点观点</label>
+                    <label htmlFor="dialectic-topic" className="block t-small text-ink-2 mb-2">起点观点</label>
                     <div className="field flex items-center gap-2 pl-4 pr-1.5 py-1.5">
                         <input
                             id="dialectic-topic"
-                            placeholder="例如：技术进步必然带来社会公平"
+                            placeholder="技术进步必然带来社会公平"
                             value={inputTopic}
                             onChange={(e) => setInputTopic(e.target.value)}
                             className="flex-1 min-w-0 h-10 text-[1.0625rem] placeholder:text-ink-3"
                             autoComplete="off"
                         />
-                        <button type="submit" disabled={!isLoading && !inputTopic.trim()} className="btn-ink shrink-0">
-                            {isLoading ? <><Square className="h-3.5 w-3.5" fill="currentColor" />停止</> : '开始推演'}
-                        </button>
+                        <button type="submit" disabled={!inputTopic.trim()} className="btn-ink shrink-0">开始推演</button>
                     </div>
                 </div>
-
                 <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
                     <div className="flex items-center gap-3">
-                        <span className="text-sm text-ink-3">轮数</span>
+                        <span className="t-small text-ink-2">轮数</span>
                         <div className="segmented" role="group" aria-label="轮数">
                             {ROUND_OPTIONS.map((n) => (
                                 <button key={n} type="button" aria-pressed={rounds === n} onClick={() => setRounds(n)}>{n}</button>
@@ -81,7 +111,7 @@ export function DialecticView() {
                             max={10}
                             value={rounds}
                             onChange={(e) => setRounds(Math.min(10, Math.max(1, Number(e.target.value) || 1)))}
-                            className="field w-14 h-8 text-center text-sm tabular-nums"
+                            className="field w-14 h-8 text-center t-small tabular-nums"
                             aria-label="自定义轮数"
                         />
                     </div>
@@ -91,44 +121,67 @@ export function DialecticView() {
                     </div>
                 </div>
             </form>
+        )
+    }
 
-            {error && (
-                <div className="border-l-2 border-destructive bg-surface px-4 py-3 text-sm" role="alert">{error}</div>
-            )}
+    const roundsToRender = rail.filter(r => r.round <= Math.max(currentRound, 1))
 
-            {isLoading && messages.length === 0 && <p className="text-sm text-ink-3" role="status">正在提出第一个正题…</p>}
-
-            {topic && (
-                <section aria-label="推演过程">
-                    <h2 className="display text-[1.5rem] sm:text-[1.875rem] text-center max-w-[32rem] mx-auto mb-10">{topic}</h2>
-                    <div className="relative">
-                        <div className="absolute top-0 bottom-0 left-3 md:left-1/2 w-px bg-line-strong md:-translate-x-1/2" aria-hidden="true" />
-                        {roundsToRender.map((round) => {
-                            const roundMessages = messages.filter(m => m.round === round)
-                            if (roundMessages.length === 0 && round > currentRound) return null
-                            return (
-                                <DialecticRoundPanel
-                                    key={round}
-                                    round={round}
-                                    messages={roundMessages}
-                                    fallacies={fallaciesByRound[round] || []}
-                                    showThinking={showThinking}
-                                    showFallacies={showFallacies}
-                                />
-                            )
-                        })}
+    return (
+        <SessionLayout
+            kicker={`${totalRounds} 轮辩证推演`}
+            topic={topic}
+            rail={<TurnRail rounds={rail} label="推演进度" />}
+            error={error}
+            side={
+                <>
+                    <div className="panel px-5 py-5">
+                        <p className="t-meta">进度</p>
+                        <p className="mt-1 flex items-baseline gap-1">
+                            <span className="numeral text-[2.5rem] leading-none">{Math.min(currentRound, totalRounds)}</span>
+                            <span className="t-small text-ink-3">/ {totalRounds} 轮</span>
+                        </p>
+                        <p className="t-small text-ink-2 mt-3">每一轮的合题会成为下一轮的正题。</p>
                     </div>
-                </section>
-            )}
+                    <div className="panel px-5 py-4 flex flex-wrap gap-2">
+                        <button type="button" className="chip" aria-pressed={showThinking} onClick={toggleThinking}>思路</button>
+                        <button type="button" className="chip" aria-pressed={showFallacies} onClick={toggleFallacies}>谬误标注</button>
+                    </div>
+                    <SideActions>
+                        {isLoading ? (
+                            <button type="button" onClick={run.cancel} className="btn-ink w-full">
+                                <Square className="h-3.5 w-3.5" fill="currentColor" />停止推演
+                            </button>
+                        ) : (
+                            <button type="button" onClick={reset} className="btn-ink w-full">
+                                <RotateCcw className="h-4 w-4" />换个观点
+                            </button>
+                        )}
+                    </SideActions>
+                </>
+            }
+        >
+            {isLoading && messages.length === 0 && <p className="text-ink-3 streaming" role="status">正在提出第一个正题</p>}
 
-            {topic && (
+            {roundsToRender.map(({ round }) => (
+                <DialecticRoundPanel
+                    key={round}
+                    round={round}
+                    messages={messages.filter(m => m.round === round)}
+                    fallacies={fallaciesByRound[round] || []}
+                    states={states[round]}
+                    showThinking={showThinking}
+                    showFallacies={showFallacies}
+                />
+            ))}
+
+            {tree && tree.nodes.length > 0 && (
                 <section aria-labelledby="tree-title" className="space-y-3">
-                    <h2 id="tree-title" className="text-xl">观点进化树</h2>
+                    <h2 id="tree-title" className="text-[1.25rem]">观点进化树</h2>
                     <DialecticTreeView tree={tree} />
                 </section>
             )}
 
             <div ref={endRef} />
-        </div>
+        </SessionLayout>
     )
 }

@@ -1,11 +1,15 @@
 import type { DialecticMessage } from '@/stores/dialecticStore'
 import type { FallacyItem } from '@/types'
-import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer'
+import { Utterance } from '@/components/session/Utterance'
+import type { TurnState } from '@/components/session/TurnRail'
+import { dialecticTurnId } from '@/features/dialectic/turnIds'
+
 
 interface DialecticRoundPanelProps {
     round: number
     messages: DialecticMessage[]
     fallacies: FallacyItem[]
+    states: Record<'thesis' | 'antithesis' | 'synthesis', TurnState>
     showThinking: boolean
     showFallacies: boolean
 }
@@ -27,7 +31,7 @@ function ThinkingNotes({ thinking }: { thinking?: Record<string, unknown> }) {
     })
     if (entries.length === 0) return null
     return (
-        <dl className="mt-3 pt-3 border-t border-line space-y-1.5 text-[0.8125rem]">
+        <dl className="mt-4 pt-3 border-t border-line space-y-1.5 t-small">
             {entries.map(([key, value]) => (
                 <div key={key}>
                     <dt className="inline text-ink-3">{THINKING_LABELS[key] ?? key}：</dt>
@@ -38,13 +42,16 @@ function ThinkingNotes({ thinking }: { thinking?: Record<string, unknown> }) {
     )
 }
 
+/** Fallacies are the observer's notes on a speech, so they carry the judge's gold. */
 function FallacyNotes({ items }: { items: FallacyItem[] }) {
     if (items.length === 0) return null
     return (
-        <ul className="mt-3 space-y-2">
+        <ul className="mt-4 pt-3 border-t border-line space-y-2.5">
             {items.map((f, i) => (
-                <li key={`${f.type}-${i}`} className="text-[0.8125rem] border-l-2 border-jury pl-3">
-                    <span className="text-jury font-medium">{f.type}</span>
+                <li key={`${f.type}-${i}`} className="t-small">
+                    <span className="inline-flex items-center gap-1.5 text-jury font-medium">
+                        <span className="stone stone-jury" aria-hidden="true" />{f.type}
+                    </span>
                     {f.quote && <span className="text-ink-2 ml-2">“{f.quote}”</span>}
                     {f.explanation && <p className="text-ink-3 mt-0.5">{f.explanation}</p>}
                 </li>
@@ -53,67 +60,56 @@ function FallacyNotes({ items }: { items: FallacyItem[] }) {
     )
 }
 
-function Position({ kind, message, fallacies, showThinking }: {
-    kind: 'thesis' | 'antithesis'
-    message?: DialecticMessage
-    fallacies: FallacyItem[]
-    showThinking: boolean
-}) {
-    const isThesis = kind === 'thesis'
-    const side = isThesis ? 'pro' : 'con'
-    return (
-        <div className={`relative pl-9 md:pl-0 ${isThesis ? 'md:col-start-1 md:pr-10' : 'md:col-start-3 md:row-start-2 md:pl-10'}`}>
-            <span
-                className={`stone stone-${side} absolute top-[0.45rem] left-3 -translate-x-1/2 md:translate-x-0 ${isThesis ? 'md:left-auto md:-right-[0.35rem]' : 'md:-left-[0.35rem]'} ring-4 ring-board`}
-                aria-hidden="true"
-            />
-            <div className={`text-[0.8125rem] mb-1.5 font-medium ${isThesis ? 'text-pro md:text-right' : 'text-con'}`}>
-                {isThesis ? '正题' : '反题'}
-            </div>
-            <div className={`bg-surface rounded-md px-5 py-4 text-[0.9375rem] border-l-2 ${isThesis ? 'border-l-pro md:border-l-0 md:border-r-2 md:border-r-pro' : 'border-l-con'}`}>
-                {message?.content ? <MarkdownRenderer content={message.content} /> : <p className="text-sm text-ink-3">正在写…</p>}
-                {showThinking && <ThinkingNotes thinking={message?.thinking} />}
-                <FallacyNotes items={fallacies} />
-            </div>
-        </div>
-    )
-}
-
-/** One round on the spine: thesis left, antithesis right, synthesis joins them in the middle. */
-export function DialecticRoundPanel({ round, messages, fallacies, showThinking, showFallacies }: DialecticRoundPanelProps) {
+/** One round: thesis, antithesis, then the observer's synthesis, which becomes the next thesis. */
+export function DialecticRoundPanel({ round, messages, fallacies, states, showThinking, showFallacies }: DialecticRoundPanelProps) {
     const thesis = messages.find(m => m.role === '正题')
     const antithesis = messages.find(m => m.role === '反题')
     const synthesis = messages.find(m => m.role === '合题')
+    const notes = (side: 'thesis' | 'antithesis') => (showFallacies ? fallacies.filter(f => f.side === side) : [])
 
     return (
-        <div className="relative pb-12">
-            <div className="relative z-10 flex md:justify-center mb-6">
-                <span className="bg-board px-3 py-0.5 rounded-full border border-line-strong text-[0.8125rem] text-ink-2">第 {round} 轮</span>
-            </div>
+        <section aria-label={`第 ${round} 轮`} className="space-y-6">
+            <h2 className="flex items-center gap-3">
+                <span className="numeral text-[1.25rem] text-ink-2">{round}</span>
+                <span className="t-meta">第 {round} 轮</span>
+                <span className="flex-1 h-px bg-line" aria-hidden="true" />
+            </h2>
 
-            <div className="grid md:grid-cols-[1fr_0_1fr] gap-y-8">
-                <Position kind="thesis" message={thesis} showThinking={showThinking}
-                    fallacies={showFallacies ? fallacies.filter(f => f.side === 'thesis') : []} />
-                {(antithesis || thesis?.content) && (
-                    <Position kind="antithesis" message={antithesis} showThinking={showThinking}
-                        fallacies={showFallacies ? fallacies.filter(f => f.side === 'antithesis') : []} />
-                )}
-            </div>
+            <Utterance
+                id={dialecticTurnId(round, 'thesis')}
+                voice="a"
+                speaker="正题"
+                content={thesis?.content}
+                streaming={states.thesis === 'live'}
+                after={<>{showThinking && <ThinkingNotes thinking={thesis?.thinking} />}<FallacyNotes items={notes('thesis')} /></>}
+            />
 
-            {synthesis && (
-                <div className="arrive relative z-10 mt-8 pl-9 md:pl-0">
-                    <div className="mx-auto max-w-xl panel border-ink px-5 py-4">
-                        <div className="flex items-center gap-2 text-[0.8125rem] font-medium mb-2">
-                            <span className="stone stone-pro" aria-hidden="true" />
-                            <span className="stone stone-con -ml-2.5" aria-hidden="true" />
-                            合题
-                            <span className="font-normal text-ink-3">成为下一轮的正题</span>
-                        </div>
-                        <MarkdownRenderer content={synthesis.content} />
-                        {showThinking && <ThinkingNotes thinking={synthesis.thinking} />}
-                    </div>
+            {(antithesis || states.antithesis !== 'pending') && (
+                <Utterance
+                    id={dialecticTurnId(round, 'antithesis')}
+                    voice="b"
+                    speaker="反题"
+                    align="end"
+                    content={antithesis?.content}
+                    streaming={states.antithesis === 'live'}
+                    after={<>{showThinking && <ThinkingNotes thinking={antithesis?.thinking} />}<FallacyNotes items={notes('antithesis')} /></>}
+                />
+            )}
+
+            {(synthesis || states.synthesis !== 'pending') && (
+                <div className="sm:px-[6%]">
+                    <Utterance
+                        align="center"
+                        id={dialecticTurnId(round, 'synthesis')}
+                        voice="judge"
+                        speaker="合题"
+                        meta="成为下一轮的正题"
+                        content={synthesis?.content}
+                        streaming={states.synthesis === 'live'}
+                        after={showThinking ? <ThinkingNotes thinking={synthesis?.thinking} /> : null}
+                    />
                 </div>
             )}
-        </div>
+        </section>
     )
 }

@@ -6,6 +6,7 @@ import { AgentDebateForm } from './AgentDebateForm'
 import { AgentDebateTranscript, DebateRail } from './AgentDebateTranscript'
 import { AgentDebateResults } from './AgentDebateResults'
 import { ScoreBoard } from './ScorePanel'
+import { SessionLayout, SideActions } from '@/components/session/SessionLayout'
 import { Download, RotateCcw, Square } from 'lucide-react'
 
 function SidePanel({ onCancel }: { onCancel: () => void }) {
@@ -15,7 +16,7 @@ function SidePanel({ onCancel }: { onCancel: () => void }) {
     } = useAgentDebateStore()
 
     return (
-        <aside className="space-y-4 lg:sticky lg:top-24 self-start" aria-label="辩论信息">
+        <>
             <div className="panel px-5 py-5">
                 <ScoreBoard evaluations={evaluations} verdict={verdict} />
             </div>
@@ -39,7 +40,7 @@ function SidePanel({ onCancel }: { onCancel: () => void }) {
                 </div>
             </div>
 
-            <div className="flex flex-col gap-2">
+            <SideActions>
                 {isLoading ? (
                     <button type="button" onClick={onCancel} className="btn-ink w-full">
                         <Square className="h-3.5 w-3.5" fill="currentColor" />停止辩论
@@ -58,8 +59,8 @@ function SidePanel({ onCancel }: { onCancel: () => void }) {
                         <Download className="h-4 w-4" />导出为 Markdown
                     </button>
                 )}
-            </div>
-        </aside>
+            </SideActions>
+        </>
     )
 }
 
@@ -81,30 +82,17 @@ export function AgentDebateView() {
     }
 
     return (
-        <div>
-            <header className="mb-5">
-                <p className="t-meta">{totalRounds} 轮对抗辩论</p>
-                <h2 className="display text-[1.75rem] sm:text-[2.5rem] mt-1 max-w-[48rem]">{topic}</h2>
-            </header>
-
-            <div className="sticky top-[60px] md:top-0 z-20 -mx-[clamp(16px,4vw,56px)] px-[clamp(16px,4vw,56px)] py-3 bg-page/90 backdrop-blur-md border-b border-line">
-                <DebateRail />
-            </div>
-
-            <div className="mt-8 grid lg:grid-cols-[minmax(0,1fr)_288px] gap-8 lg:gap-10 items-start">
-                <div className="min-w-0 space-y-14">
-                    {error && (
-                        <div className="panel px-5 py-4 text-sm" style={{ boxShadow: 'inset 3px 0 0 var(--danger), var(--shadow-card)' }} role="alert">
-                            {error}
-                        </div>
-                    )}
-                    {isLoading && messages.length === 0 && <p className="text-ink-3 streaming" role="status">双方正在审题</p>}
-                    <AgentDebateTranscript />
-                    <AgentDebateResults />
-                    <div ref={endRef} />
-                </div>
-                <SidePanel onCancel={cancel} />
-            </div>
-        </div>
+        <SessionLayout
+            kicker={`${totalRounds} 轮对抗辩论`}
+            topic={topic}
+            rail={<DebateRail />}
+            side={<SidePanel onCancel={cancel} />}
+            error={error}
+        >
+            {isLoading && messages.length === 0 && <p className="text-ink-3 streaming" role="status">双方正在审题</p>}
+            <AgentDebateTranscript />
+            <AgentDebateResults />
+            <div ref={endRef} />
+        </SessionLayout>
     )
 }

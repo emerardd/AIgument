@@ -11,9 +11,9 @@ const iconMap: Record<ToastType, React.ElementType> = {
 // Toasts are ink on board; the icon carries the kind, the text says what happened.
 const iconColorMap: Record<ToastType, string> = {
     success: 'text-board',
-    error: 'text-[var(--con-soft)]',
+    error: 'text-[var(--voice-b-soft)]',
     info: 'text-board',
-    warning: 'text-[var(--jury-soft)]',
+    warning: 'text-[var(--judge-soft)]',
 }
 
 export function ToastContainer() {

@@ -111,7 +111,7 @@ export default function SettingsPage() {
     }
 
     const Section = ({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) => (
-        <section className="grid md:grid-cols-[13rem_1fr] gap-x-10 gap-y-4 py-8 border-t border-line">
+        <section className="panel grid md:grid-cols-[13rem_1fr] gap-x-10 gap-y-4 px-6 py-6 mb-6">
             <div>
                 <h2 className="text-lg">{title}</h2>
                 {note && <p className="text-[0.8125rem] text-ink-3 mt-1 leading-relaxed">{note}</p>}

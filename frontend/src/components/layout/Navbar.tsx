@@ -25,8 +25,8 @@ function Mark() {
     return (
         <svg viewBox="0 0 28 28" className="w-7 h-7" aria-hidden="true">
             <line x1="3" y1="14" x2="25" y2="14" stroke="currentColor" strokeWidth="1.5" />
-            <circle cx="8.5" cy="14" r="5" fill="var(--pro)" />
-            <circle cx="19.5" cy="14" r="5" fill="var(--con)" />
+            <circle cx="8.5" cy="14" r="5" fill="var(--voice-a)" />
+            <circle cx="19.5" cy="14" r="5" fill="var(--voice-b)" />
         </svg>
     )
 }

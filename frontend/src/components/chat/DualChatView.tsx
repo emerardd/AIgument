@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { Square } from 'lucide-react'
+import { RotateCcw, Square } from 'lucide-react'
+import { SessionLayout, SideActions } from '@/components/session/SessionLayout'
+import { TurnRail, type RailRound, type TurnState } from '@/components/session/TurnRail'
+import { Utterance } from '@/components/session/Utterance'
 import { Page } from '@/components/layout/Page'
 import { useInitialTopic } from '@/hooks/useInitialTopic'
 import { useStreamRun } from '@/hooks/useStreamRun'
@@ -35,6 +38,7 @@ export function DualChatView() {
     const [isRunning, setIsRunning] = useState(false)
     const [currentSpeaker, setCurrentSpeaker] = useState<string>('')
     const [error, setError] = useState<string | null>(null)
+    const [active, setActive] = useState<{ topic: string; roleA: string; roleB: string; nameA: string; nameB: string; turns: number } | null>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const run = useStreamRun()
     const { defaultProvider, defaultModel } = useSettingsStore()
@@ -53,8 +57,8 @@ export function DualChatView() {
 
     // 自动滚动
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }, [messages])
+        if (isRunning) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    }, [messages, isRunning])
 
     const startConversation = () => {
         if (!topic.trim()) {
@@ -65,6 +69,11 @@ export function DualChatView() {
         setIsRunning(true)
         setMessages([])
         setError(null)
+        setActive({
+            topic: topic.trim(), roleA, roleB, turns,
+            nameA: roles.find(r => r.id === roleA)?.name ?? roleA,
+            nameB: roles.find(r => r.id === roleB)?.name ?? roleB,
+        })
 
         void run.start<DualChatStreamEvent>(
             (onEvent, onError, signal) => chatAPI.streamDualChat(
@@ -150,7 +159,7 @@ export function DualChatView() {
 
     const renderRolePicker = (slot: 'a' | 'b', value: string, onChange: (id: string) => void) => (
         <fieldset disabled={isRunning || rolesLoading} className="min-w-0">
-            <legend className="flex items-center gap-2 text-sm text-ink-3 mb-2">
+            <legend className="flex items-center gap-2 t-small text-ink-2 mb-2">
                 <span className={`stone stone-${slot === 'a' ? 'pro' : 'con'}`} aria-hidden="true" />
                 {slot === 'a' ? '先开口的人' : '接话的人'}
             </legend>
@@ -185,80 +194,128 @@ export function DualChatView() {
         </fieldset>
     )
 
-    return (
-        <Page title="角色对话" description="选两个性格不同的人，让他们围绕一个话题聊下去。">
-            <form className="space-y-8" onSubmit={(e) => { e.preventDefault(); if (isRunning) stopConversation(); else startConversation() }}>
-                <div>
-                    <label htmlFor="dual-topic" className="block text-sm text-ink-3 mb-2">话题</label>
-                    <div className="field flex items-center gap-2 pl-4 pr-1.5 py-1.5">
+    const roleName = (id: string) => roles.find(r => r.id === id)?.name ?? id
+
+    if (!active) {
+        return (
+            <Page width="full" title="角色对话" description="选两个性格不同的人，让他们围绕一个话题聊下去。">
+                <form
+                    className="panel px-5 sm:px-8 py-6 sm:py-8 max-w-[960px] space-y-8"
+                    onSubmit={(e) => { e.preventDefault(); startConversation() }}
+                >
+                    <div>
+                        <label htmlFor="dual-topic" className="block t-small text-ink-2 mb-2">话题</label>
+                        <div className="field flex items-center gap-2 pl-4 pr-1.5 py-1.5">
+                            <input
+                                id="dual-topic"
+                                value={topic}
+                                onChange={e => setTopic(e.target.value)}
+                                placeholder="远程办公的利弊"
+                                className="flex-1 min-w-0 h-10 text-[1.0625rem] placeholder:text-ink-3"
+                                autoComplete="off"
+                            />
+                            <button type="submit" disabled={!topic.trim()} className="btn-ink shrink-0">开始对话</button>
+                        </div>
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 gap-x-10 gap-y-6">
+                        {renderRolePicker('a', roleA, setRoleA)}
+                        {renderRolePicker('b', roleB, setRoleB)}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <span className="t-small text-ink-2">来回几次</span>
+                        <div className="segmented" role="group" aria-label="对话轮数">
+                            {[2, 3, 5].map(n => (
+                                <button key={n} type="button" aria-pressed={turns === n} onClick={() => setTurns(n)}>{n}</button>
+                            ))}
+                        </div>
                         <input
-                            id="dual-topic"
-                            value={topic}
-                            onChange={e => setTopic(e.target.value)}
-                            placeholder="例如：远程办公的利弊"
-                            className="flex-1 min-w-0 h-10 text-[1.0625rem] placeholder:text-ink-3"
-                            disabled={isRunning}
-                            autoComplete="off"
+                            type="number"
+                            min={1}
+                            max={10}
+                            value={turns}
+                            onChange={(e) => setTurns(Math.min(10, Math.max(1, Number(e.target.value) || 1)))}
+                            className="field w-14 h-8 text-center t-small tabular-nums"
+                            aria-label="自定义轮数"
                         />
-                        <button type="submit" disabled={!isRunning && !topic.trim()} className="btn-ink shrink-0">
-                            {isRunning ? <><Square className="h-3.5 w-3.5" fill="currentColor" />停止</> : '开始对话'}
-                        </button>
                     </div>
-                </div>
+                    {error && <p className="t-small text-destructive" role="alert">{error}</p>}
+                </form>
+            </Page>
+        )
+    }
 
-                <div className="grid sm:grid-cols-2 gap-x-10 gap-y-6">
-                    {renderRolePicker('a', roleA, setRoleA)}
-                    {renderRolePicker('b', roleB, setRoleB)}
-                </div>
+    // A speaks first, then B answers: message n belongs to round ceil(n / 2).
+    const rail: RailRound[] = Array.from({ length: active.turns }, (_, i) => {
+        const round = i + 1
+        const state = (turnNo: number): TurnState => {
+            const msg = messages.find(m => m.turn === turnNo)
+            return !msg ? 'pending' : msg.isComplete ? 'done' : 'live'
+        }
+        return {
+            round,
+            turns: [
+                { target: `t${round * 2 - 1}`, voice: 'a', label: active.nameA, state: state(round * 2 - 1) },
+                { target: `t${round * 2}`, voice: 'b', label: active.nameB, state: state(round * 2) },
+            ],
+        }
+    })
 
-                <div className="flex items-center gap-3">
-                    <span className="text-sm text-ink-3">来回几次</span>
-                    <div className="segmented" role="group" aria-label="对话轮数">
-                        {[2, 3, 5].map(n => (
-                            <button key={n} type="button" aria-pressed={turns === n} onClick={() => setTurns(n)} disabled={isRunning}>{n}</button>
-                        ))}
-                    </div>
-                    <input
-                        type="number"
-                        min={1}
-                        max={10}
-                        value={turns}
-                        onChange={(e) => setTurns(Math.min(10, Math.max(1, Number(e.target.value) || 1)))}
-                        disabled={isRunning}
-                        className="field w-14 h-8 text-center text-sm tabular-nums"
-                        aria-label="自定义轮数"
-                    />
-                </div>
-            </form>
-
-            {error && (
-                <div className="mt-8 border-l-2 border-destructive bg-surface px-4 py-3 text-sm" role="alert">{error}</div>
-            )}
-
-            {messages.length > 0 && (
-                <section className="mt-12" aria-label="对话记录">
-                    <h2 className="display text-[1.5rem] sm:text-[1.75rem] mb-6">{topic}</h2>
-                    <ol className="border-t border-line">
-                        {messages.map((msg) => {
-                            const isA = msg.role_id === 'a'
-                            return (
-                                <li
-                                    key={`${msg.turn}-${msg.role_id}`}
-                                    className="grid sm:grid-cols-[9rem_1fr] gap-x-6 gap-y-1 py-5 border-b border-line"
-                                >
-                                    <div className="flex sm:flex-col gap-2 sm:gap-0.5 items-baseline">
-                                        <span className={`font-medium ${isA ? 'text-pro' : 'text-con'}`}>{msg.speaker}</span>
-                                        {!msg.isComplete && <span className="text-[0.8125rem] text-ink-3">正在说…</span>}
+    return (
+        <Page width="full" title="角色对话" description="选两个性格不同的人，让他们围绕一个话题聊下去。">
+            <SessionLayout
+                kicker={`${active.nameA} 和 ${active.nameB}，${active.turns} 个来回`}
+                topic={active.topic}
+                rail={<TurnRail rounds={rail} label="对话进度" />}
+                error={error}
+                side={
+                    <>
+                        <div className="panel px-5 py-4 space-y-4">
+                            {(['a', 'b'] as const).map(slot => {
+                                const role = roles.find(r => r.id === (slot === 'a' ? active.roleA : active.roleB))
+                                return (
+                                    <div key={slot}>
+                                        <p className="flex items-center gap-2 font-medium">
+                                            <span className={`stone stone-${slot === 'a' ? 'pro' : 'con'}`} aria-hidden="true" />
+                                            <span className={slot === 'a' ? 'text-pro' : 'text-con'}>{slot === 'a' ? active.nameA : active.nameB}</span>
+                                        </p>
+                                        {role?.persona && <p className="t-small text-ink-2 mt-1">{role.persona}</p>}
                                     </div>
-                                    <p className="whitespace-pre-wrap leading-[1.9] max-w-[40rem]">{msg.content}</p>
-                                </li>
-                            )
-                        })}
-                    </ol>
-                    {currentSpeaker && <p className="sr-only" role="status">{currentSpeaker} 正在说</p>}
-                    <div ref={messagesEndRef} />
-                </section>
-            )}
+                                )
+                            })}
+                        </div>
+                        <SideActions>
+                            {isRunning ? (
+                                <button type="button" onClick={stopConversation} className="btn-ink w-full">
+                                    <Square className="h-3.5 w-3.5" fill="currentColor" />停止对话
+                                </button>
+                            ) : (
+                                <button type="button" onClick={() => { setActive(null); setMessages([]); setError(null) }} className="btn-ink w-full">
+                                    <RotateCcw className="h-4 w-4" />换个话题
+                                </button>
+                            )}
+                        </SideActions>
+                    </>
+                }
+            >
+                {isRunning && messages.length === 0 && <p className="text-ink-3 streaming" role="status">{active.nameA}正在想怎么开口</p>}
+                <div className="space-y-8">
+                    {messages.map((msg) => (
+                        <Utterance
+                            key={`${msg.turn}-${msg.role_id}`}
+                            id={`t${msg.turn}`}
+                            voice={msg.role_id === 'a' ? 'a' : 'b'}
+                            align={msg.role_id === 'a' ? 'start' : 'end'}
+                            speaker={msg.speaker || roleName(msg.role_id === 'a' ? active.roleA : active.roleB)}
+                            content={msg.content}
+                            streaming={!msg.isComplete}
+                        />
+                    ))}
+                </div>
+                {currentSpeaker && <p className="sr-only" role="status">{currentSpeaker} 正在说</p>}
+                <div ref={messagesEndRef} />
+            </SessionLayout>
         </Page>
     )
 }

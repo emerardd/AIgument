@@ -41,11 +41,11 @@ function initMermaid() {
                 stroke: var(--line-strong) !important;
                 stroke-width: 1px !important;
             }
-            .node.pro rect, .node.pro circle, .node.pro polygon { stroke: var(--pro) !important; stroke-width: 2px !important; }
-            .node.con rect, .node.con circle, .node.con polygon { stroke: var(--con) !important; stroke-width: 2px !important; }
+            .node.pro rect, .node.pro circle, .node.pro polygon { stroke: var(--voice-a) !important; stroke-width: 2px !important; }
+            .node.con rect, .node.con circle, .node.con polygon { stroke: var(--voice-b) !important; stroke-width: 2px !important; }
             .edgePath path, .flowchart-link { stroke: var(--ink-3) !important; stroke-width: 1.5px !important; }
             marker path { fill: var(--ink-3) !important; stroke: var(--ink-3) !important; }
-            .edgeLabel, .edgeLabel p { background-color: var(--board) !important; color: var(--ink-2) !important; font-size: 12px !important; }
+            .edgeLabel, .edgeLabel p { background-color: var(--page) !important; color: var(--ink-2) !important; font-size: 12px !important; }
             .label, .nodeLabel, .nodeLabel p { color: var(--ink) !important; fill: var(--ink) !important; }
         `,
     })

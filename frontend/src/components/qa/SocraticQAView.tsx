@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Square } from 'lucide-react'
 import { Page } from '@/components/layout/Page'
-import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer'
+import { TurnRail, type RailRound } from '@/components/session/TurnRail'
+import { Utterance } from '@/components/session/Utterance'
 import type { TopicHandoff } from '@/hooks/useInitialTopic'
 import { useStreamRun } from '@/hooks/useStreamRun'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -143,13 +144,22 @@ export function SocraticQAView() {
         return acc
     }, [])
 
+    const thread = [
+        ...turns.map(t => ({ ...t, live: false })),
+        ...(pending ? [{ q: pending, a: response, live: true }] : []),
+    ]
+    const rail: RailRound[] = thread.map((turn, i) => ({
+        round: i + 1,
+        turns: [{ target: `q${i + 1}`, voice: 'a', label: '回答', state: turn.live ? 'live' : 'done' }],
+    }))
+
     return (
         <Page
             width="reading"
             title="问答"
             description="可以让它只用提问引导你，也可以直接要答案，或者两样都要。"
         >
-            <div role="radiogroup" aria-label="回答方式" className="grid grid-cols-3 border-y border-line divide-x divide-line mb-10">
+            <div role="radiogroup" aria-label="回答方式" className="panel overflow-hidden grid grid-cols-3 divide-x divide-line mb-10">
                 {modes.map(mode => {
                     const selected = selectedMode === mode.id
                     return (
@@ -159,7 +169,7 @@ export function SocraticQAView() {
                             role="radio"
                             aria-checked={selected}
                             onClick={() => setSelectedMode(mode.id)}
-                            className={`relative text-left px-3 sm:px-4 py-3 ${selected ? 'bg-surface' : 'hover:bg-surface/60'}`}
+                            className={`relative text-left px-3 sm:px-4 py-3 ${selected ? 'bg-pro-soft' : 'hover:bg-sunken/60'}`}
                         >
                             {selected && <span className="absolute inset-x-0 top-0 h-[2px] bg-ink" aria-hidden="true" />}
                             <span className={`block text-[0.9375rem] ${selected ? 'text-ink font-medium' : 'text-ink-2'}`}>{mode.name}</span>
@@ -170,28 +180,32 @@ export function SocraticQAView() {
             </div>
 
             {(turns.length > 0 || pending) && (
-                <ol className="space-y-10 mb-10" aria-label="问答记录">
-                    {turns.map((turn, i) => (
-                        <li key={i}>
-                            <p className="font-serif text-[1.25rem] leading-snug font-semibold">{turn.q}</p>
-                            {turn.a && <div className="mt-4"><ResponseRenderer content={turn.a} /></div>}
-                        </li>
-                    ))}
-                    {pending && (
-                        <li>
-                            <p className="font-serif text-[1.25rem] leading-snug font-semibold">{pending}</p>
-                            <div className="mt-4" aria-live="polite">
-                                {response
-                                    ? <ResponseRenderer content={response} />
-                                    : <p className="text-sm text-ink-3">{MODE_ANSWER_LABEL[selectedMode] ?? '回答'}正在生成…</p>}
-                            </div>
-                        </li>
-                    )}
-                </ol>
+                <>
+                    <div className="sticky top-[60px] md:top-0 z-20 -mx-[clamp(16px,4vw,56px)] px-[clamp(16px,4vw,56px)] py-3 mb-8 bg-page/90 backdrop-blur-md border-b border-line">
+                        <TurnRail label="问答进度" rounds={rail} />
+                    </div>
+                    <ol className="space-y-12 mb-12" aria-label="问答记录">
+                        {thread.map((turn, i) => (
+                            <li key={i} id={`q${i + 1}`} className="scroll-mt-40">
+                                <p className="flex gap-3 font-serif text-[1.25rem] leading-snug font-semibold mb-4">
+                                    <span className="numeral text-ink-3 font-normal shrink-0">{i + 1}</span>
+                                    <span>{turn.q}</span>
+                                </p>
+                                <Utterance
+                                    voice="a"
+                                    align="center"
+                                    speaker={MODE_ANSWER_LABEL[selectedMode] ?? '回答'}
+                                    content={turn.a || undefined}
+                                    streaming={turn.live}
+                                />
+                            </li>
+                        ))}
+                    </ol>
+                </>
             )}
 
             {error && (
-                <div className="mb-6 border-l-2 border-destructive bg-surface px-4 py-3 text-sm" role="alert">{error}</div>
+                <div className="mb-6 panel px-5 py-4 t-small" style={{ boxShadow: 'inset 3px 0 0 var(--danger), var(--shadow-card)' }} role="alert">{error}</div>
             )}
 
             <form onSubmit={(e) => { e.preventDefault(); if (isLoading) cancelQuestion(); else askQuestion() }}>
@@ -224,19 +238,5 @@ export function SocraticQAView() {
             </form>
             <div ref={responseRef} />
         </Page>
-    )
-}
-
-/** Answers are markdown; a "---" line separates the guiding part from the answer in hybrid mode. */
-function ResponseRenderer({ content }: { content: string }) {
-    const blocks = content.split(/\n-{3,}\n/)
-    return (
-        <div className="space-y-5">
-            {blocks.map((block, i) => (
-                <div key={i} className={i > 0 ? 'pt-5 border-t border-line' : ''}>
-                    <MarkdownRenderer content={block} />
-                </div>
-            ))}
-        </div>
     )
 }

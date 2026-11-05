@@ -89,20 +89,20 @@ export function HistoryList({ onViewDetail }: HistoryListProps) {
             {isLoading ? (
                 <HistoryListSkeleton />
             ) : error ? (
-                <div className="border-l-2 border-destructive bg-surface px-4 py-3 text-sm" role="alert">
+                <div className="panel px-5 py-4 t-small" style={{ boxShadow: 'inset 3px 0 0 var(--danger), var(--shadow-card)' }} role="alert">
                     历史记录读取失败：{error}
                 </div>
             ) : items.length === 0 ? (
-                <p className="py-10 text-ink-3 border-t border-line">
+                <p className="panel px-6 py-10 text-ink-2">
                     {searchQuery ? `没有话题包含“${searchQuery}”。` : '这里还是空的。完成一次辩论、对话或问答后会出现在这里。'}
                 </p>
             ) : (
                 <>
-                    <ul className="border-t border-line">
+                    <ul className="panel divide-y divide-line px-5">
                         {items.map((item) => {
                             const status = item.status ? STATUS_LABELS[item.status] : undefined
                             return (
-                                <li key={item.session_id} className="group grid grid-cols-[1fr_auto] sm:grid-cols-[6.5rem_1fr_auto_auto] items-baseline gap-x-4 gap-y-1 py-3.5 border-b border-line">
+                                <li key={item.session_id} className="group grid grid-cols-[1fr_auto] sm:grid-cols-[6.5rem_1fr_auto_auto] items-baseline gap-x-4 gap-y-1 py-3.5">
                                     <span className="hidden sm:block text-[0.8125rem] text-ink-3">{SESSION_TYPE_LABELS[item.type] ?? item.type}</span>
                                     <button
                                         type="button"

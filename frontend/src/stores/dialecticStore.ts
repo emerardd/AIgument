@@ -18,6 +18,7 @@ interface DialecticState extends DialecticRunState {
     showFallacies: boolean
 
     beginRun: (topic: string, rounds: number) => void
+    reset: () => void
     applyEvent: (event: DialecticStreamEvent) => void
     endRun: (error?: string | null) => void
     toggleThinking: () => void
@@ -42,6 +43,8 @@ export const useDialecticStore = create<DialecticState>((set) => ({
     }),
 
     endRun: (error = null) => set({ isLoading: false, error }),
+
+    reset: () => set({ ...initialDialecticRun, topic: '', isLoading: false, error: null }),
 
     toggleThinking: () => set((state) => ({ showThinking: !state.showThinking })),
     toggleFallacies: () => set((state) => ({ showFallacies: !state.showFallacies })),
