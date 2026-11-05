@@ -107,6 +107,8 @@
 
   --font-sans: "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
   --font-serif: "Fraunces Variable", "Noto Serif SC", "Songti SC", "STSong", serif;
+  /* What someone says is set in serif; the interface around it stays sans. */
+  --font-reading: "Noto Serif SC", "Songti SC", "STSong", serif;
 }
 
 @layer base {
@@ -332,8 +334,18 @@
 
 /* ---- Markdown inside speeches ---- */
 
-.markdown-content { color: var(--ink); }
+.markdown-content {
+  color: var(--ink);
+  font-family: var(--font-reading);
+  font-size: 1.0625rem;
+  line-height: 1.95;
+  letter-spacing: 0.01em;
+}
+.markdown-content h3, .markdown-content h4 { font-family: var(--font-reading); }
 .markdown-content p { margin-bottom: 0.75em; }
 .markdown-content p:last-child { margin-bottom: 0; }
 .markdown-content strong { font-weight: 600; }
 .markdown-content code { font-size: 0.875em; background: var(--sunken); padding: 0.1em 0.35em; border-radius: 4px; }
+
+/* Spoken text outside a markdown block (jury comments, verdict summary). */
+.reading { font-family: var(--font-reading); letter-spacing: 0.01em; line-height: 1.9; }

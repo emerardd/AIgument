@@ -56,7 +56,7 @@ export function RoundRuling({ id, evaluation }: { id?: string; evaluation: Round
                 </span>
             </div>
 
-            {evaluation.commentary && <p className="mt-3 text-ink-2">{evaluation.commentary}</p>}
+            {evaluation.commentary && <p className="mt-3 text-ink-2 reading">{evaluation.commentary}</p>}
 
             <button
                 type="button"
@@ -140,7 +140,7 @@ export function VerdictPanel({ id, verdict }: { id?: string; verdict: FinalVerdi
                 <span className="numeral text-[2.25rem] leading-none text-con">{verdict.con_total_score}</span>
             </p>
 
-            {verdict.summary && <p className="mt-6 text-ink-2 max-w-[36rem] mx-auto">{verdict.summary}</p>}
+            {verdict.summary && <p className="mt-6 text-ink-2 max-w-[36rem] mx-auto reading">{verdict.summary}</p>}
 
             {(verdict.pro_strengths.length > 0 || verdict.con_strengths.length > 0) && (
                 <div className="mt-8 grid sm:grid-cols-2 gap-6 text-left max-w-3xl mx-auto">
