@@ -364,26 +364,26 @@ class ArgumentGraph:
         }
     
     def to_mermaid(self) -> str:
-        """导出为 Mermaid 图表格式"""
-        lines = ["graph TB"]
-        
-        # 添加节点
+        """导出为 Mermaid 图表格式（供复制使用；界面上的交锋图由前端绘制）
+
+        不写死颜色，只标注 pro / con 类名，由使用方决定样式。
+        """
+        lines = ["graph LR"]
+
         for node in self.nodes.values():
-            label = node.content[:30].replace('"', "'") + "..."
-            shape = "([" if node.author == "pro" else "[["
-            end_shape = "])" if node.author == "pro" else "]]"
-            color = ":::pro" if node.author == "pro" else ":::con"
-            lines.append(f'    {node.id}{shape}"{label}"{end_shape}{color}')
-        
-        # 添加边
+            summary = node.key_points[0] if node.key_points else node.content
+            summary = " ".join(summary.split())
+            label = (summary[:40] + "…") if len(summary) > 40 else summary
+            label = label.replace('"', "'")
+            side = "正方" if node.author == "pro" else "反方"
+            lines.append(f'    {node.id}["第{node.round}轮{side}：{label}"]:::{node.author}')
+
         for edge in self.edges:
-            arrow = "-->" if edge.relation in [RelationType.SUPPORTS, RelationType.BUILDS_ON] else "-.->|攻击|"
-            lines.append(f'    {edge.source_id} {arrow} {edge.target_id}')
-        
-        # 添加样式
-        lines.append('    classDef pro fill:#3b82f6,color:#fff')
-        lines.append('    classDef con fill:#f97316,color:#fff')
-        
+            if edge.relation in [RelationType.SUPPORTS, RelationType.BUILDS_ON]:
+                lines.append(f'    {edge.source_id} -.->|延续| {edge.target_id}')
+            else:
+                lines.append(f'    {edge.source_id} -->|反驳| {edge.target_id}')
+
         return "\n".join(lines)
 
 

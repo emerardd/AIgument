@@ -124,3 +124,13 @@ class TestArgumentAnalyzer:
         assert result is not None
         assert result["relation_type"] == "attacks"
         ai_client.get_completion.assert_awaited_once()
+
+
+def test_mermaid_export_has_no_hardcoded_colors_and_uses_key_points():
+    g = ArgumentGraph(topic="t")
+    node = g.add_argument(content="很长的原始发言内容" * 10, author="pro", round_num=1)
+    node.key_points = ["技术替代的是任务"]
+    mermaid = g.to_mermaid()
+    assert "classDef" not in mermaid and "#" not in mermaid
+    assert "技术替代的是任务" in mermaid
+    assert ":::pro" in mermaid

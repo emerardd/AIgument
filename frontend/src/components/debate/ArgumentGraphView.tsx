@@ -1,6 +1,7 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { MermaidRenderer } from '@/components/ui/MermaidRenderer'
+import { CopyButton } from '@/components/ui/CopyButton'
+import { ArgumentMap } from './ArgumentMap'
 import { buildApiUrl } from '@/config/env'
 
 interface ArgumentNode {
@@ -109,11 +110,11 @@ export function ArgumentGraphView({ sessionId }: ArgumentGraphViewProps) {
                 type="button"
                 onClick={() => setExpanded(!expanded)}
                 aria-expanded={expanded}
-                className="w-full flex items-baseline gap-3 py-3 border-y border-line text-left"
+                className="w-full flex items-baseline gap-3 text-left"
             >
                 <ChevronDown className={`w-4 h-4 self-center text-ink-3 transition-transform ${expanded ? '' : '-rotate-90'}`} aria-hidden="true" />
-                <h2 id="graph-title" className="text-lg">论点图谱</h2>
-                <span className="text-[0.8125rem] text-ink-3">{scores.total_arguments} 个论点，{scores.total_relations} 条关系</span>
+                <h2 id="graph-title" className="text-[1.25rem]">论点交锋</h2>
+                <span className="t-meta">{scores.total_arguments} 个论点，{scores.total_relations} 条关系</span>
             </button>
 
             {expanded && (
@@ -125,18 +126,14 @@ export function ArgumentGraphView({ sessionId }: ArgumentGraphViewProps) {
                         <StrongestArguments title="反方最有力的论点" arguments={graph.summary.con_strongest} side="con" />
                     </div>
 
-                    <GraphVisualization nodes={graph.nodes} edges={graph.edges} />
+                    <div className="panel px-4 sm:px-6 py-5">
+                        <ArgumentMap nodes={graph.nodes} edges={graph.edges} />
+                    </div>
 
                     {mermaid && (
-                        <div className="space-y-3">
-                            <h3 className="text-base">论点关系图</h3>
-                            <div className="panel p-4">
-                                <MermaidRenderer code={mermaid} className="min-h-[200px]" />
-                            </div>
-                            <details className="text-[0.8125rem]">
-                                <summary className="text-ink-3 cursor-pointer hover:text-ink">查看 Mermaid 代码</summary>
-                                <pre className="mt-2 overflow-x-auto p-3 bg-sunken rounded-md">{mermaid}</pre>
-                            </details>
+                        <div className="flex items-center gap-2 t-meta">
+                            <CopyButton text={mermaid} />
+                            <span>复制 Mermaid 图表代码，可以粘贴到其他支持 Mermaid 的工具里</span>
                         </div>
                     )}
                 </div>
@@ -193,45 +190,6 @@ function StrongestArguments({ title, arguments: args, side }: {
             ) : (
                 <p className="text-sm text-ink-3">没有可列出的论点。</p>
             )}
-        </div>
-    )
-}
-
-function GraphVisualization({ nodes, edges }: { nodes: ArgumentNode[]; edges: ArgumentEdge[] }) {
-    const nodesByRound = useMemo(() => {
-        const grouped: Record<number, ArgumentNode[]> = {}
-        nodes.forEach(node => {
-            (grouped[node.round] ??= []).push(node)
-        })
-        return grouped
-    }, [nodes])
-
-    const attacks = edges.filter(e => e.relation === 'attacks').length
-    const supports = edges.filter(e => e.relation === 'builds_on').length
-
-    return (
-        <div>
-            <div className="flex items-baseline justify-between mb-3">
-                <h3 className="text-base">每轮的论点</h3>
-                <span className="text-[0.8125rem] text-ink-3">反驳 {attacks} 次，延续 {supports} 次</span>
-            </div>
-            <div className="border-t border-line">
-                {Object.entries(nodesByRound).map(([round, roundNodes]) => (
-                    <div key={round} className="grid sm:grid-cols-[4rem_1fr_1fr] gap-x-6 gap-y-2 py-3 border-b border-line text-sm">
-                        <span className="text-[0.8125rem] text-ink-3">第 {round} 轮</span>
-                        {(['pro', 'con'] as const).map(side => (
-                            <div key={side} className="space-y-1.5">
-                                {roundNodes.filter(n => n.author === side).map(node => (
-                                    <p key={node.id} className={`border-l-2 pl-3 line-clamp-2 ${side === 'pro' ? 'border-pro' : 'border-con'} ${node.is_rebutted ? 'text-ink-3' : 'text-ink-2'}`}>
-                                        {node.key_points[0] || node.content}
-                                        {node.is_rebutted && <span className="text-[0.75rem]">（已被反驳）</span>}
-                                    </p>
-                                ))}
-                            </div>
-                        ))}
-                    </div>
-                ))}
-            </div>
         </div>
     )
 }
