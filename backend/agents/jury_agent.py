@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from .base_agent import BaseAgent, ThinkResult
 from utils.logger import get_logger
+from exceptions import AIgumentException
 
 
 logger = get_logger(__name__)
@@ -220,6 +221,8 @@ class JuryAgent(BaseAgent):
             self.con_scores.append(evaluation.con_score)
             self.add_to_memory({"type": "evaluation", "round": round_num, "result": evaluation.model_dump()})
             return evaluation
+        except AIgumentException:
+            raise
         except Exception as exc:
             logger.exception("JuryAgent 评估出错")
             return RoundEvaluation(
@@ -284,6 +287,8 @@ class JuryAgent(BaseAgent):
             )
             self.update_belief("final_verdict", verdict.model_dump())
             return verdict
+        except AIgumentException:
+            raise
         except Exception as exc:
             logger.exception("JuryAgent 最终裁决出错")
             return FinalVerdict(

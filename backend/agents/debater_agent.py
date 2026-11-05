@@ -12,6 +12,7 @@ from typing import Dict, Any, List, Optional
 from .base_agent import BaseAgent, ThinkResult
 import json
 from utils.logger import get_logger
+from exceptions import AIgumentException
 
 
 logger = get_logger(__name__)
@@ -237,6 +238,9 @@ class DebaterAgent(BaseAgent):
                 confidence=analysis.get("confidence", 0.5)
             )
             
+        except AIgumentException:
+            # The model call itself failed (key, network, quota): let the run fail.
+            raise
         except Exception as e:
             logger.exception("DebaterAgent 思考过程出错")
             return ThinkResult(
@@ -289,9 +293,9 @@ class DebaterAgent(BaseAgent):
             
             return response
             
-        except Exception as e:
+        except Exception:
             logger.exception("DebaterAgent 生成论点出错")
-            return f"[{self.name}发言生成失败]"
+            raise
     
     async def react(self, context: Dict[str, Any]) -> tuple[ThinkResult, str]:
         """完整的 ReAct 循环
@@ -389,7 +393,7 @@ class DebaterAgent(BaseAgent):
             yield {
                 "type": "error",
                 "side": self.position,
-                "content": str(e)
+                "error": str(e),
             }
     
     def get_stats(self) -> Dict[str, Any]:

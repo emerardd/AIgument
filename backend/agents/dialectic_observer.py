@@ -4,6 +4,7 @@
 负责生成合题与检测逻辑谬误。
 """
 from typing import Dict, Any, List
+from exceptions import AIgumentException
 
 from .base_agent import BaseAgent, ThinkResult
 
@@ -103,6 +104,8 @@ side: "thesis" 或 "antithesis"
             if not result.get("synthesis"):
                 result["synthesis"] = "在正反张力中，需要在目标与边界之间取得动态平衡。"
             return result
+        except AIgumentException:
+            raise
         except Exception:
             return {
                 "synthesis": "在正反张力中，需要在目标与边界之间取得动态平衡。",
@@ -121,6 +124,8 @@ side: "thesis" 或 "antithesis"
             parsed = self._parse_json_response(response, default=[])
             if isinstance(parsed, list):
                 return parsed
+        except AIgumentException:
+            raise
         except Exception:
             pass
         return []

@@ -7,8 +7,12 @@
 """
 from typing import Dict, Any, List
 import json
+from exceptions import AIgumentException
+from utils.logger import get_logger
 
 from .base_agent import BaseAgent, ThinkResult
+
+logger = get_logger(__name__)
 
 
 class DialecticThesisAgent(BaseAgent):
@@ -89,6 +93,9 @@ class DialecticThesisAgent(BaseAgent):
                 next_action="generate_thesis",
                 confidence=analysis.get("confidence", 0.5)
             )
+        except AIgumentException:
+            # The model call itself failed (key, network, quota): let the run fail.
+            raise
         except Exception as e:
             return ThinkResult(
                 reasoning=f"分析失败: {str(e)}",
@@ -111,8 +118,9 @@ class DialecticThesisAgent(BaseAgent):
         try:
             response = await self.ai_client.get_completion(messages, temperature=self.temperature)
             return response.strip()
-        except Exception as e:
-            return f"[正题生成失败: {str(e)}]"
+        except Exception:
+            logger.exception("Dialectic speech failed")
+            raise
 
     async def react(self, context: Dict[str, Any]) -> tuple[ThinkResult, str]:
         self.update_belief("current_context", context)
@@ -191,6 +199,9 @@ class DialecticAntithesisAgent(BaseAgent):
                 next_action="generate_antithesis",
                 confidence=analysis.get("confidence", 0.5)
             )
+        except AIgumentException:
+            # The model call itself failed (key, network, quota): let the run fail.
+            raise
         except Exception as e:
             return ThinkResult(
                 reasoning=f"分析失败: {str(e)}",
@@ -212,8 +223,9 @@ class DialecticAntithesisAgent(BaseAgent):
         try:
             response = await self.ai_client.get_completion(messages, temperature=self.temperature)
             return response.strip()
-        except Exception as e:
-            return f"[反题生成失败: {str(e)}]"
+        except Exception:
+            logger.exception("Dialectic speech failed")
+            raise
 
     async def react(self, context: Dict[str, Any]) -> tuple[ThinkResult, str]:
         self.update_belief("current_context", context)
